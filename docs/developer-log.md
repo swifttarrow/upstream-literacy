@@ -401,3 +401,12 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** next.config.js rewrites /api/:path* → http://127.0.0.1:3001/api/:path*; backend registers routes with prefix /api; frontend api.ts uses /api base in browser (or NEXT_PUBLIC_API_URL when set); next.config.ts replaced with next.config.js for Next.js 14 compatibility.
 **Owner:** Developer
 
+### [2026-03-21] Real district data ingestion PRD added to fill requirement gap
+
+**Context:** Implementation plan Phase 3 and the existing ingestion script only supported sample/demo fixture data; the plan explicitly excluded "broad dataset ingestion." No spec existed for ingesting real school district data.
+**Options considered:** (A) Continue with sample data only vs (B) document requirements for real data ingestion as a separate PRD.
+**Decision:** Add `docs/prds/district-data-ingestion.md` specifying real NCES-backed ingestion for an initial 100 districts, plus an internal moderator-facing ingestion console (preview, trigger, monitor, edit).
+**Rationale:** Fills the gap between demo-only MVP and eventual production readiness; provides a clear scope (100 districts, NCES source) and operational workflow (moderator UI, audit trail) without committing to full US coverage.
+**Impact:** New PRD defines ingestion console UX, source assumptions, and phased rollout; implementation should reference `docs/prds/district-data-ingestion.md` when building real-data ingestion.
+**Owner:** Developer
+

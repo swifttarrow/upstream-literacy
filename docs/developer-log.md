@@ -261,3 +261,122 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Rationale:** This maximizes delivery speed and consistency for relationship-heavy data while avoiding premature distributed complexity.
 **Impact:** System domains should be explicitly separated (Identity and Access, District Data, Problem Taxonomy, Discovery and Matching, Conversations, Moderation and Admin, Notifications); async jobs should handle ingestion/normalization/notifications/future analytics; deferred items include ML matching, global AI insights, microservices decomposition, and advanced search infrastructure.
 **Owner:** Agent (Codex) + developer confirmation pending
+
+## Planning
+
+### [2026-03-20] Implementation plan created for District Community Matching Platform
+
+**Context:** PRD and schema were complete; no implementation plan existed for building the application.
+**Options considered:** (A) Single monolithic phase vs (B) phased approach aligned with PRD domains and dependencies vs (C) domain-driven parallel tracks.
+**Decision:** Phased implementation in 10 phases: Foundation → Profiles/Districts/Taxonomy → Ingestion → Discovery → Messaging → Groups → Moderation → Notifications → AI → Frontend.
+**Rationale:** Sequential phases respect dependencies (auth before profiles, matching before messaging); each phase has clear success criteria and human verification checkpoints per agent/prompts/plan.md.
+**Impact:** Implementation should follow `docs/plans/2026-03-20-district-community-matching-platform.md`; technical stack (Node/TS, Next.js, etc.) proposed as defaults—confirmation required before Phase 1.
+**Owner:** Agent + developer confirmation pending
+
+### [2026-03-20] Background jobs use pg-boss
+
+**Context:** MVP needs background jobs for district ingestion, notifications, and future analytics; implementation plan proposed pg-boss or Bull as options.
+**Options considered:** (A) Bull/BullMQ (Redis-based) vs (B) pg-boss (PostgreSQL-based).
+**Decision:** Use pg-boss for background job processing.
+**Rationale:** Eliminates Redis dependency; Postgres is already the primary database; ACID guarantees and exactly-once delivery suit ingestion and moderation workflows; simpler infrastructure for MVP.
+**Impact:** Add pg-boss as dependency; configure with existing Postgres connection; use for ingestion jobs (Phase 3), notifications (Phase 8), and future async work.
+**Owner:** Developer
+
+### [2026-03-20] Real-time messaging uses ws (plain WebSockets)
+
+**Context:** MVP requires real-time messaging for 1:1 and group conversations; implementation plan proposed Socket.io or ws.
+**Options considered:** (A) Socket.io (rooms, reconnection, fallbacks) vs (B) ws (minimal WebSocket library) vs (C) uWebSockets.js / PartyKit.
+**Decision:** Use ws for real-time messaging.
+**Rationale:** Prioritize minimalist approach—ws is the minimal, standard WebSocket implementation with no protocol abstraction; smaller surface area to understand and maintain; rooms and reconnection can be built explicitly if needed; Socket.io and others add complexity that may not be necessary at MVP scale.
+**Impact:** Add ws as dependency; implement conversation channels and broadcast logic in app layer; defer Socket.io or similar unless production needs (e.g. poor reconnection behavior) justify the switch.
+**Owner:** Developer
+
+### [2026-03-20] Backend API uses Fastify
+
+**Context:** Implementation plan proposed Fastify or Hono for the Node/TypeScript backend.
+**Options considered:** (A) Fastify vs (B) Hono vs (C) Express.
+**Decision:** Use Fastify for the API layer.
+**Rationale:** Mature plugin ecosystem for Postgres, websockets, JWT, Swagger; @fastify/websocket integrates ws with the same server; widely used for traditional Node APIs; fits modular monolith deployment on a single long-lived Node process.
+**Impact:** Add Fastify and core plugins; use fastify-type-provider-zod or handler-level Zod for validation; @fastify/websocket for real-time messaging routes.
+**Owner:** Developer
+
+### [2026-03-20] Auth uses cookie-based sessions
+
+**Context:** Implementation plan proposed JWT or cookie-based sessions for auth.
+**Options considered:** (A) JWT (stateless) vs (B) cookie-based session (server-side store).
+**Decision:** Use cookie-based sessions for authentication.
+**Rationale:** Immediate revocation on logout; HttpOnly cookies reduce XSS risk; single DB and modular monolith means session store is straightforward; no token blacklist needed.
+**Impact:** Store session ID in HttpOnly cookie; session row in DB (or Redis if added later); lookup on each authenticated request; logout deletes session server-side.
+**Owner:** Developer
+
+### [2026-03-20] Membership uses email verification + auto-approval
+
+**Context:** PRD requires membership approval/verification; options included manual admin approval, auto-approve, or email verification.
+**Options considered:** (A) Manual admin approval vs (B) Auto-approve vs (C) Email verification only vs (D) Email verification + auto-approval.
+**Decision:** Email verification + auto-approval for MVP.
+**Rationale:** Email verification blocks throwaway accounts with minimal friction; auto-approval after verification keeps onboarding fast and avoids admin bottleneck; manual approval can be added later for edge cases or if abuse emerges.
+**Impact:** Registration flow requires email verification before full access; on successful verification, set membership_status to approved; no admin approval step in MVP.
+**Owner:** Developer
+
+### [2026-03-20] District data source is NCES Common Core of Data (CCD)
+
+**Context:** District ingestion needs a source for public district attributes; options included NCES, state agencies, manual entry, CSV, third-party.
+**Options considered:** (A) NCES CCD vs (B) State education agency APIs vs (C) Manual/admin entry vs (D) Third-party (e.g. GreatSchools).
+**Decision:** Use NCES Common Core of Data (CCD) as the district data source.
+**Rationale:** Authoritative federal data; free; structured enrollment, demographics, geography; annual updates sufficient for MVP; widely used for education analytics.
+**Impact:** Ingestion pipeline parses CCD files; map to district_attribute_definitions and district_effective_attribute_values; source_label and timestamps per schema.
+**Owner:** Developer
+
+### [2026-03-20] District ingestion runs on cron (pg-boss)
+
+**Context:** Ingestion needed a trigger mechanism; options included cron, CLI script, manual, or webhook.
+**Options considered:** (A) Scheduled cron via pg-boss vs (B) CLI script on demand vs (C) Manual admin button vs (D) External webhook.
+**Decision:** Use pg-boss scheduled jobs (cron) for district ingestion.
+**Rationale:** CCD updates annually; scheduled runs keep data current without manual intervention; pg-boss already chosen for background jobs; CLI script can remain for initial load and debugging.
+**Impact:** Register pg-boss cron job (e.g. weekly or monthly); idempotent ingestion logic; optional CLI entry point for manual runs.
+**Owner:** Developer
+
+### [2026-03-20] Messaging uses LinkedIn-style connections model
+
+**Context:** Messaging gate needed to support both matching-suggested peers and user-initiated outreach; previous decision considered message_requests table.
+**Options considered:** (A) Message requests (request-to-message, approve, unlock conversation) vs (B) LinkedIn-style connections (request-to-connect, accept, then either can message).
+**Decision:** Use LinkedIn-style connections model.
+**Rationale:** Simpler schema—one relationship type (connected) gates messaging; matching becomes "suggested connections" (discovery); users send connection requests to anyone (suggested or not); once accepted, either can start a DM; groups add connected users only; familiar UX pattern.
+**Impact:** Add `user_connections` table (user_a, user_b, status: pending | accepted, created_at); connection request API; messaging gate = are we connected?; group invites = connected users only; matching surfaces suggested peers to connect with.
+**Owner:** Developer
+
+### [2026-03-20] AI features use OpenAI
+
+**Context:** Phase 9 AI features (summarization, suggested actions) require an LLM provider; options included OpenAI, Anthropic, others.
+**Options considered:** (A) OpenAI vs (B) Anthropic vs (C) Other (Google, Mistral).
+**Decision:** Use OpenAI for LLM integration.
+**Rationale:** Cost-driven; OpenAI generally cheaper across tiers; adequate for summarization and suggested actions; batch API available for async workloads; abstract client to allow future provider switch if needed.
+**Impact:** Add OpenAI SDK; use for conversation summarization and suggested next steps; store model_name and prompt_version in user_ai_artifacts; rate limit AI endpoints.
+**Owner:** Developer
+
+### [2026-03-20] API and frontend deployed as standalone services
+
+**Context:** Implementation plan did not specify how Fastify API and Next.js frontend relate at deployment.
+**Options considered:** (A) Standalone Fastify + separate Next.js vs (B) Next.js API routes as gateway vs (C) Colocated in single Next.js app.
+**Decision:** Standalone Fastify API + standalone Next.js frontend.
+**Rationale:** Clean separation of concerns; API scales independently; Fastify optimized for API workload; CORS and deploy configuration explicit; fits modular monolith with distinct service boundaries.
+**Impact:** Two deployable units (or same host, different ports); Next.js calls Fastify API via fetch; shared types via monorepo package; CORS configured on Fastify.
+**Owner:** Developer
+
+### [2026-03-20] Project structure is monorepo
+
+**Context:** Backend and frontend could be in one repo or split.
+**Options considered:** (A) Monorepo (apps/api, apps/web, packages/shared) vs (B) Split repos vs (C) Single app.
+**Decision:** Use monorepo structure.
+**Rationale:** Shared types and contracts; atomic cross-stack changes; single clone for local dev; clear separation via apps/ and packages/ structure.
+**Impact:** Structure as apps/api (Fastify), apps/web (Next.js), packages/shared (types, validation); use Turborepo or similar for build orchestration.
+**Owner:** Developer
+
+### [2026-03-20] Database access uses Drizzle ORM
+
+**Context:** Implementation plan proposed raw `pg` or Drizzle for database access; Prisma is another ORM option.
+**Options considered:** (A) Raw `pg` vs (B) Drizzle vs (C) Prisma.
+**Decision:** Use Drizzle ORM with `pg` driver.
+**Rationale:** Type-safe queries without schema-first lock-in; lighter than Prisma; aligns with existing raw SQL schema (can map incrementally); good TypeScript inference; migrations can coexist with existing schema/*.sql or migrate over time.
+**Impact:** Add Drizzle and drizzle-orm; define schema reflecting existing tables or use raw SQL where needed; use pg as underlying driver; optional drizzle-kit for migrations.
+**Owner:** Developer

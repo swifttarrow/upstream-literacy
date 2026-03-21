@@ -54,6 +54,7 @@ This platform enables:
 
 * Find similar districts
 * Identify peers solving the same problems
+* Connect with peers (send/accept connection requests)
 * Start conversations
 * Collaborate in small groups
 
@@ -70,16 +71,17 @@ This platform enables:
 ### Network Model
 
 * Single unified network (no predefined communities)
+* LinkedIn-style connections: users send connection requests; once accepted, they are connected and can message
 
 ### Messaging
 
-* Direct messaging allowed
+* Direct messaging between connected users only
 * Small-group conversations (max 8 users)
 * Real-time messaging (websockets)
 
 ### Group Formation
 
-* Groups created from matched users only
+* Groups created from connected users only
 
 ### Onboarding
 
@@ -144,35 +146,44 @@ This platform enables:
   * district attributes
   * role
   * geography
-* Ranked results
+* Ranked results (suggested connections)
 * Match explanations
 * Exact vs close match labeling
+* Connection requests: user can send request to any discovered peer; recipient accepts or rejects
 
-### 8.6 Messaging
+### 8.6 Connections
 
-* Real-time 1:1 messaging
+* Send connection request to any user
+* Accept or reject incoming requests
+* List connections (connected), pending sent, pending received
+* Messaging gate: only connected users can direct message
+
+### 8.7 Messaging
+
+* Real-time 1:1 messaging (between connected users)
 * Real-time group messaging (max 8)
 * Conversation history
 * Contextual prompts (shared problem)
 
-### 8.7 Groups
+### 8.8 Groups
 
-* Create groups from matched users
+* Create groups from connected users
 * Join/leave groups
 
-### 8.8 Moderation
+### 8.9 Moderation
 
 * Report content
 * Moderator review
 * User suspension
 * Audit logs
 
-### 8.9 Notifications
+### 8.10 Notifications
 
 * New messages
+* Connection request received/accepted
 * Status updates
 
-### 8.10 AI Features
+### 8.11 AI Features
 
 * Conversation summarization
 * Suggested next steps
@@ -222,6 +233,7 @@ This platform enables:
 * District Data
 * Taxonomy
 * Matching
+* Connections
 * Conversations
 * Moderation
 * Notifications
@@ -242,6 +254,7 @@ This platform enables:
 * Districts
 * ProblemStatements
 * UserProblemSelections
+* UserConnections (pending | accepted)
 * Conversations
 * Messages
 * Reports

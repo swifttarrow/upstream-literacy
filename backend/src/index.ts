@@ -19,7 +19,7 @@ import aiRoutes from './routes/ai.js';
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
-async function buildServer() {
+export async function buildServer() {
   const fastify = Fastify({
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
@@ -62,4 +62,10 @@ async function main() {
   }
 }
 
-main();
+// Only start server when run directly; skip when imported for tests
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

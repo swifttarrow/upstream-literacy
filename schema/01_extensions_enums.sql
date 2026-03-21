@@ -26,8 +26,10 @@ CREATE TYPE moderation_action_type AS ENUM (
   'close_conversation'
 );
 
-CREATE TYPE notification_type AS ENUM ('new_message', 'membership_status', 'moderation_update', 'system');
+CREATE TYPE notification_type AS ENUM ('new_message', 'connection_request', 'connection_accepted', 'membership_status', 'moderation_update', 'system');
 
 CREATE TYPE ai_artifact_kind AS ENUM ('conversation_summary', 'suggested_actions');
 
 CREATE TYPE district_value_provenance AS ENUM ('ingest', 'override');
+
+CREATE TYPE connection_status AS ENUM ('pending', 'accepted');

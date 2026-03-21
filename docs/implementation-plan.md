@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations. District data is managed via an internal [Ingestion Console](prds/district-data-ingestion.md) (moderator-facing UI for NCES upload, auto-ingest, completeness, edit, audit).
+Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations. District data is managed via an internal [Ingestion Console](prds/district-data-ingestion.md) (moderator-facing UI for NCES upload, auto-ingest, missing-data flagging, NCES year selection, edit, audit).
 
 ## Current State Analysis
 
@@ -43,7 +43,7 @@ See `developer-log.md` for decision rationale.
 **Specification:** Full MVP as defined in PRD §12 and §8, including:
 
 1. Auth + profiles (district, role, bio, primary/secondary problems)
-2. District data ingestion (moderator console: NCES upload UI, auto-ingest all districts, completeness scoring, browse/edit, audit) — per [district-data-ingestion PRD](prds/district-data-ingestion.md); map view for geographic coverage — per [district-data-visualization PRD](prds/district-data-visualization.md)
+2. District data ingestion (moderator console: NCES upload UI, auto-ingest all districts, missing-data flagging, NCES year selection, browse/edit, audit) — per [district-data-ingestion PRD](prds/district-data-ingestion.md); map view for geographic coverage — per [district-data-visualization PRD](prds/district-data-visualization.md)
 3. Problem taxonomy (admin-managed, categorized)
 4. Discovery & matching (filter by problem, district, role, geography; ranked results; exact vs close match; match explanations)
 5. Connections (send/accept requests; gate for messaging)
@@ -145,23 +145,24 @@ Implement profile CRUD, district lookup, and problem taxonomy. Enables profile c
 
 ### Overview
 
-Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md): moderator-facing Ingestion Console with NCES CCD file upload, automatic ingestion of all districts, completeness scoring, district list with filters, post-ingestion editing, and audit logging. No manual per-district ingestion—moderators upload, system ingests all, moderators edit only when they want. Backend: attribute definitions, upload/ingestion jobs, admin overrides, provenance display. Implemented via milestones m11–m15.
+Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md): moderator-facing Ingestion Console with NCES CCD file upload, automatic ingestion of all districts, missing-data flagging, NCES year selection, district list with filters, post-ingestion editing, and audit logging. No manual per-district ingestion—moderators upload, system ingests all, moderators edit only when they want. Backend: attribute definitions, upload/ingestion jobs, admin overrides, provenance display. Implemented via milestones m11–m15.
 
 ### Changes Required
 
 | Area | Changes |
 |------|---------|
-| **NCES upload** | Upload UI for CCD CSV; parse and validate format; create ingestion job per upload |
-| **District candidates** | Populate `district_candidates` (or equivalent) from uploaded file; no pre-seeded list; status per record (ingested, failed, etc.) |
+| **NCES upload** | Upload UI for **two required files**: CCD district CSV + EDGE Public LEA Geocode CSV; parse and validate both; join by LEAID; create ingestion job; associate with NCES year |
+| **District candidates** | Populate `district_candidates` from CCD file joined with EDGE file; store latitude, longitude from EDGE (LAT, LON columns); no pre-seeded list; status per record; store `nces_year` |
 | **Attribute definitions** | Seed `district_attribute_definitions` (type, enrollment, FRL, EL, grade bands); per db-schema.md MVP set |
 | **Ingestion** | Job model: parse uploaded CSV → normalize each row → insert `district_ingestion_events`; merge into `district_effective_attribute_values`; async (pg-boss) for large uploads |
-| **Completeness scoring** | Compute per-district completeness (required vs recommended vs optional fields); display in list and detail |
-| **Ingestion Console API** | Dashboard summary; upload endpoint; district list (filters: state, completeness, search); job progress; retry failed |
+| **Missing data flagging** | Flag districts with missing required/recommended fields (`has_missing_data`); display in list and detail |
+| **NCES year selection** | NCES year selector on dashboard and district list when multiple years have been uploaded; scope district count and list to selected year |
+| **Ingestion Console API** | Dashboard summary; upload endpoint; district list (filters: state, NCES year, missing-data, search); job progress |
 | **Admin overrides** | `PATCH /admin/ingestion/districts/:id`; insert/update `district_admin_overrides`; recompute effective values; revert to source |
-| **Errors & data quality** | Capture parse/ingestion errors (type, message, retry_eligible); completeness flags; display in UI |
-| **Moderator UI** | Upload area; dashboard (summary cards, district table with completeness, filters); district detail (view & edit); job progress view |
+| **Errors & missing data** | Capture parse/ingestion errors (file parse, DB write); flag districts with missing data; display in UI |
+| **Moderator UI** | Upload area (two file inputs: CCD + EDGE); links to both download pages; dashboard (summary cards, NCES year selector, district table with missing-data flag, filters); district detail (view & edit); job progress view |
 | **Audit** | Log: file uploaded, ingestion started/completed, district edited, override reverted |
-| **Display** | District endpoints surface `provenance`, `completeness_score`, `last_ingestion_event_id`, `last_override_id` |
+| **Display** | District endpoints surface `provenance`, `has_missing_data`, `nces_year`, `last_ingestion_event_id`, `last_override_id` |
 | **Demo/seed** | Optional seed script for demo districts and users (`is_demo = true`) |
 
 ### Success Criteria
@@ -169,17 +170,18 @@ Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md
 #### Automated Verification
 - [ ] Upload parses CCD CSV and creates ingestion job
 - [ ] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
-- [ ] Completeness score computed per district
+- [ ] Districts with missing required/recommended fields flagged as `has_missing_data`
 - [ ] Admin override updates effective values correctly
 - [ ] Source/timestamp visible in district API responses
 - [ ] Moderator can upload file via API; job progresses; errors captured
 
 #### Manual Verification
-- [ ] Moderator sees upload UI and dashboard with district list, completeness summary, filters
-- [ ] Moderator can upload NCES CCD file; all districts auto-ingested; progress visible
-- [ ] Districts show completeness scores and ingested attributes with provenance
+- [ ] Moderator sees upload UI and dashboard with district list, NCES year selector (when multiple years), filters
+- [ ] Moderator can upload both CCD and EDGE files; all districts auto-ingested with coordinates; progress visible
+- [ ] Districts show missing-data flag and ingested attributes with provenance
+- [ ] Moderator can select NCES year to view districts from that year
 - [ ] Moderator can edit district; override visible; revert to source works
-- [ ] Errors and low-completeness districts surfaced; retry available for eligible failures
+- [ ] Districts with missing data surfaced; moderator can filter and fix via edit
 - [ ] Audit trail queryable for upload and edit actions
 - [ ] Demo data available for cold-start testing
 
@@ -414,7 +416,7 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 | **Groups** | Create group, add/remove participants, group conversation view |
 | **Notifications** | Bell/indicator, list, mark read |
 | **Moderation** | Admin/moderator: report queue, actions |
-| **Ingestion Console** | Moderator: upload UI, dashboard, district list with completeness, district edit (per district-data-ingestion PRD); map view with markers (per district-data-visualization PRD) |
+| **Ingestion Console** | Moderator: upload UI, dashboard, district list with missing-data flag and NCES year selector, district edit (per district-data-ingestion PRD); map view with markers (per district-data-visualization PRD) |
 | **Polish** | Loading states, error handling, accessibility, performance |
 
 ### Success Criteria
@@ -438,26 +440,26 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 
 Add an interactive map view to the ingestion console per [district-data-visualization PRD](prds/district-data-visualization.md). Moderators see ingested districts as point markers (color-coded by completeness/status), filter by completeness/state/search, and click through to district detail. Extends the existing ingestion console.
 
-**End state:** Map with "Table" \| "Map" tab; markers colored by completeness/status; filters update markers; click → district detail. Districts without coordinates excluded; count shown. Geocoding via `npm run geocode:district-candidates`. A simple map with working markers beats a complex map with broken geocoding.
+**End state:** Map with "Table" \| "Map" tab; markers colored by completeness/status; filters update markers; click → district detail. Districts without coordinates excluded; count shown. Coordinates come from EDGE file at upload (primary); optional fallback geocoding script for districts not in EDGE.
 
-**Out of scope:** District boundary polygons; geocoding at ingestion time; real-time geocoding; clustering; public or mobile map UX.
+**Out of scope:** District boundary polygons; real-time geocoding; clustering; public or mobile map UX.
 
-**Technical decisions:** Nominatim (geocoding); Leaflet + react-leaflet (map); `GET /admin/ingestion/map-data` (dedicated endpoint); tab "Table" \| "Map" integration.
+**Technical decisions:** Coordinates from EDGE at ingestion (no post-upload geocoding for matched districts); optional Nominatim fallback script for unmatched; Leaflet + react-leaflet (map); `GET /admin/ingestion/map-data`; tab "Table" \| "Map" integration.
 
 ---
 
-### Phase 11.1: Schema & Geocoding Enrichment
+### Phase 11.1: Schema & Coordinate Population from EDGE
 
-Add latitude, longitude, geocoded_at to district_candidates (or equivalent district table). Implement and run geocoding script using Nominatim.
+Add latitude, longitude, geocoded_at to district_candidates. Coordinates populated from EDGE file at ingestion (join by LEAID); optional fallback script for unmatched.
 
 | Area | Changes |
 |------|---------|
-| **Schema** | New `schema/12_district_candidates_geocode.sql`: `ALTER TABLE district_candidates ADD COLUMN latitude numeric(9,6)`, `longitude numeric(9,6)`, `geocoded_at timestamptz` |
-| **Geocoding script** | `backend/scripts/geocode-district-candidates.ts`: fetch candidates with `latitude IS NULL`; for each, call Nominatim `{name}, {state}, USA`; 1 req/sec delay; update row; log success/failure |
-| **Package.json** | Add `"geocode:district-candidates"` script |
-| **Nominatim** | Use `https://nominatim.openstreetmap.org/search?q=...&format=json`; set User-Agent header per OSM policy |
+| **Schema** | `schema/12_district_candidates_geocode.sql`: latitude, longitude, geocoded_at columns (already exists) |
+| **Ingestion** | When parsing dual upload: parse CCD and EDGE; build LEAID→(LAT, LON) map from EDGE; when creating district_candidates from CCD, look up coordinates by LEAID; set geocoded_at when coordinates come from EDGE |
+| **Fallback script** | Optional `geocode-district-candidates.ts`: fetch candidates with `latitude IS NULL`; call Nominatim for name+state; 1 req/sec; update row. Use only for districts not in EDGE or with missing EDGE coords |
+| **Package.json** | `"geocode:district-candidates"` script (fallback only) |
 
-**Success:** Migration runs; script processes districts; rows updated with lat/lng where geocode succeeds. Script idempotent. Test with subset first, then full set.
+**Success:** Ingestion populates lat/lng from EDGE for matched districts; schema supports coordinates; fallback script available for edge cases.
 
 ---
 
@@ -498,11 +500,11 @@ Legend, loading states, error handling, empty state, documentation.
 | Area | Changes |
 |------|---------|
 | **Legend** | Status → color mapping visible |
-| **Empty state** | "No districts with coordinates" or "Run geocoding script" when all missing |
+| **Empty state** | "No districts with coordinates" when all missing; link to re-upload with EDGE or run fallback geocoding script |
 | **Error handling** | API failure shows message; retry or link to docs |
-| **Docs** | How to run geocoding script; when to re-run |
+| **Docs** | Dual upload instructions; download links for CCD and EDGE; when to run fallback geocoding script |
 
-**Success:** Legend matches dashboard badge colors; empty/error states handled; geocoding script documented.
+**Success:** Legend matches dashboard badge colors; empty/error states handled; dual upload and fallback script documented.
 
 ---
 
@@ -513,7 +515,7 @@ Phase 1 (Foundation)
     ↓
 Phase 2 (Profiles, Districts, Taxonomy)
     ↓
-Phase 3 (Ingestion) — m11–m15: Ingestion Console (NCES upload, auto-ingest, completeness, dashboard, edit, audit)
+Phase 3 (Ingestion) — m11–m15: Ingestion Console (NCES upload, auto-ingest, missing-data flagging, NCES year selection, dashboard, edit, audit)
     ↓
 Phase 11 (Map View) — 11.1 Schema & geocoding → 11.2 Map API → 11.3 Map component → 11.4 Polish; depends on Phase 3
     ↓
@@ -541,7 +543,7 @@ Phase 10 (Frontend) — can start after Phase 2, iterate each phase
 | Poor data quality | Start with small, high-confidence attribute set; validate ingestion output |
 | Cold start empty results | Progressive broadening; seeded demo profiles; clear "close match" labeling |
 | Moderation content access | Enforce in API; no RLS initially; document policy clearly |
-| Geocoding accuracy/rate limits | Nominatim may misgeocode some districts; rate limit ~1 req/sec; use static lookup for critical misses if needed |
+| Geocoding accuracy/rate limits | Primary: EDGE coords at upload. Fallback Nominatim ~1 req/sec for unmatched districts; may misgeocode some names |
 
 ---
 

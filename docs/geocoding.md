@@ -1,8 +1,18 @@
-# District Candidate Geocoding
+# District Candidate Coordinates
 
-The map view in the Ingestion Console requires latitude/longitude coordinates for each district candidate. These are populated by the geocoding script, which calls the [Nominatim](https://nominatim.openstreetmap.org/) OpenStreetMap API.
+The map view in the Ingestion Console requires latitude/longitude coordinates for each district candidate.
 
-## Running the Script
+## Primary Source: EDGE Geocode File at Upload
+
+Coordinates are **populated at ingestion time** when moderators upload both the CCD district file and the [EDGE Public LEA Geocode](https://nces.ed.gov/programs/edge/geographic/schoollocations) file. The system joins them by LEAID and stores `latitude`, `longitude`, and `geocoded_at` for matched districts.
+
+**Download:** [EDGE School Geocodes & Geoassignments](https://nces.ed.gov/programs/edge/geographic/schoollocations) → select "Public School District File" (ZIP); extract the CSV and upload it together with the CCD file.
+
+## Fallback: Geocoding Script
+
+For districts **not** in the EDGE file or with missing coordinates, run the optional fallback geocoding script, which calls the [Nominatim](https://nominatim.openstreetmap.org/) OpenStreetMap API.
+
+### Running the Script
 
 From the `backend/` directory:
 
@@ -19,7 +29,7 @@ This will:
 
 The script is **idempotent**: re-running it will skip any candidate that already has coordinates.
 
-## Options
+### Options
 
 ```bash
 # Preview without writing to the database
@@ -29,12 +39,24 @@ npm run geocode:district-candidates -- --dry-run
 npm run geocode:district-candidates -- --limit 10
 ```
 
-## When to Re-Run
+### When to Re-Run
 
-Re-run the script whenever:
-- New district candidates are added (e.g. after `npm run seed:district-candidates`)
-- A candidate's name or state is corrected and you want fresh coordinates
+Re-run the script when:
+- District candidates were ingested **without** an EDGE file (legacy data)
+- A district in the CCD file was not found in the EDGE file
+- A candidate's name or state was corrected and you want fresh coordinates
 
-## Failures
+### Failures
 
 Some districts may not be found by Nominatim (unusual names, no OSM data). These are logged with `-> No results found` and left with NULL coordinates. They will not appear on the map but are still visible in the Table view.
+
+---
+
+## Download Links
+
+| File | Purpose | Link |
+|------|---------|------|
+| **CCD LEA directory** | District names, state, LEAID, enrollment, FRL, EL, etc. | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year |
+| **EDGE Public LEA Geocode** | Latitude, longitude, locale for each district | [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — "Public School District File" |
+
+**Note:** Select matching school years for both files (e.g., 2024–25 for both). EDGE direct download pattern: `https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICLEA_XXXX.zip` where XXXX = 2425 (2024–25), 2324 (2023–24), etc.

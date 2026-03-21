@@ -327,6 +327,15 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** Add `latitude`, `longitude`, `geocoded_at` to district_candidates; geocoding script with 1 req/sec delay; map-data endpoint; Leaflet dependency in frontend. Implementation: Phase 11 (11.1–11.4) in `docs/implementation-plan.md`.
 **Owner:** Agent + developer
 
+### [2026-03-21] Dual file upload: CCD + EDGE geocode required
+
+**Context:** NCES CCD district file does not include lat/long; coordinates are in a separate EDGE Public LEA Geocode file. Previously used post-upload Nominatim geocoding for all districts.
+**Options considered:** (A) Keep single CCD upload + Nominatim geocoding script vs (B) require both CCD and EDGE at upload; join by LEAID; use Nominatim only as fallback for unmatched.
+**Decision:** Require moderators to upload both CCD district file and EDGE Public LEA Geocode file. System joins by LEAID at ingestion and populates coordinates from EDGE. Optional fallback geocoding script for districts not in EDGE.
+**Rationale:** EDGE provides authoritative NCES coordinates; eliminates rate-limited external API calls for most districts; aligns school years between sources.
+**Impact:** Upload UI: two required file inputs; parse both; join by LEAID; populate latitude, longitude, geocoded_at from EDGE. Update PRD, implementation plan, m11/m12/m13 milestones, geocoding docs. Download links: CCD https://nces.ed.gov/ccd/files.asp, EDGE https://nces.ed.gov/programs/edge/geographic/schoollocations.
+**Owner:** Agent + developer
+
 ### [2026-03-20] Membership uses email verification + auto-approval
 
 **Context:** PRD requires membership approval/verification; options included manual admin approval, auto-approve, or email verification.

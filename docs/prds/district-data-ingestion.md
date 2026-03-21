@@ -2,15 +2,14 @@
 
 ## 1. Overview
 
-Build an internal moderator-facing data ingestion console that allows moderators to upload NCES district data, automatically ingest all districts from the uploaded file, and edit district data when needed. The system provides a small upload UI; after upload, the system ingests all district records and scores each district's completeness. Moderators do not manually ingest individual districts—they only edit data when they want to correct or enrich it.
+Build an internal moderator-facing data ingestion console that allows moderators to upload NCES district data, automatically ingest all districts from the uploaded file, and edit district data when needed. The system provides a small upload UI; after upload, the system ingests all district records. Moderators do not manually ingest individual districts—they only edit data when they want to correct or enrich it.
 
 The ingestion experience should be transparent and operationally safe:
-- moderators can upload the latest NCES CCD data (CSV) via a simple UI
-- the system automatically ingests all districts from the uploaded file
-- the system scores each district's data completeness
-- moderators can browse districts and view completeness scores
+- moderators upload **both** the NCES CCD district file and the EDGE Public LEA Geocode file via a simple UI
+- the system automatically ingests all districts from the CCD file and enriches them with coordinates from the EDGE file
+- moderators can browse districts and filter by NCES year when multiple years have been uploaded
 - moderators can edit district data when they want to correct or enrich it
-- moderators can detect and resolve missing or invalid data
+- moderators can identify districts that have missing data
 
 ---
 
@@ -31,10 +30,9 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 - Allow moderators to upload NCES CCD district data (CSV) through a simple UI
 - Automatically ingest all districts from the uploaded file
-- Score each district's data completeness (required vs optional fields)
-- Allow moderators to browse ingested districts and view completeness scores
+- Allow moderators to browse ingested districts and select/filter by NCES year when multiple years have been uploaded
 - Allow moderators to edit district data when they want to correct or enrich it
-- Surface errors and missing data during upload/ingestion
+- Flag districts that have missing data
 - Create an auditable workflow for district data operations
 
 ---
@@ -62,16 +60,16 @@ An internal ingestion UI is needed so moderators can manage district data with c
 ## 6. Key User Stories
 
 ### Moderator
-- As a moderator, I want to upload the latest NCES CCD data file so I can keep district data current.
+- As a moderator, I want to upload the latest NCES CCD and EDGE geocode files so I can keep district data current with coordinates.
 - As a moderator, I want the system to automatically ingest all districts from my upload so I do not need to select each one.
-- As a moderator, I want to see each district's completeness score so I know which records need attention.
-- As a moderator, I want to browse ingested districts and filter by completeness, state, or search so I can find specific records.
+- As a moderator, I want to select a given NCES year when I've uploaded data across multiple years so I can view the right dataset.
+- As a moderator, I want to browse ingested districts and filter by state or search so I can find specific records.
 - As a moderator, I want to edit district data when I need to correct or enrich it.
-- As a moderator, I want to see errors and missing fields from the upload/ingestion so I can fix or follow up on bad data.
+- As a moderator, I want to see which districts have missing data so I can fix or follow up on them.
 - As a moderator, I want an audit trail of upload and edit actions so changes are accountable.
 
 ### Admin
-- As an admin, I want to review data quality and completeness outcomes at scale.
+- As an admin, I want to review data quality outcomes at scale.
 
 ---
 
@@ -79,13 +77,13 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 ### In Scope
 - Internal moderator UI for district data management
-- NCES CCD file upload (CSV format supported by NCES)
-- Automatic ingestion of all districts from uploaded file
-- Completeness scoring for each district (required vs optional fields)
-- District list/dashboard with filters (search, state, completeness)
+- Dual file upload: NCES CCD district file (CSV) + EDGE Public LEA Geocode file (CSV from ZIP)
+- Automatic ingestion of all districts from CCD file, joined with coordinates from EDGE file by LEAID
+- District list/dashboard with filters (search, state, NCES year)
+- NCES year selector for when data has been uploaded across multiple years
 - Post-ingestion editing (moderators edit only when they want)
 - Error reporting for upload/parse/ingestion failures
-- Missing data flagging and completeness indicators
+- Missing data flagging for districts
 - Audit logging
 
 ### Out of Scope
@@ -98,15 +96,24 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 ## 8. Source Data Assumptions
 
-The ingestion workflow will use **NCES Common Core of Data (CCD)** district files as the source of truth. Moderators upload the latest CCD CSV (or equivalent format) via the UI.
+The ingestion workflow requires **two files** uploaded together:
 
-### NCES CCD file format
-NCES provides CCD district data in CSV format. The system shall accept the standard CCD district file structure (directory, universe, or similar). The upload UI will guide moderators to download the appropriate file from nces.ed.gov/ccd and upload it.
+1. **NCES CCD district file** — administrative data (name, enrollment, FRL, EL, etc.)
+2. **NCES EDGE Public LEA Geocode file** — latitude/longitude coordinates and locale
+
+Moderators upload both files via the UI. The system joins them by LEAID (NCES district identifier) during ingestion.
+
+### 8.1 NCES CCD district file
+NCES provides CCD district data in CSV format. The system shall accept the standard CCD LEA directory file structure. Download from: [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select the LEA (Local Education Agency) level and the appropriate school year. The upload UI will link to this page.
+
+### 8.2 NCES EDGE Public LEA Geocode file
+NCES EDGE provides district-level latitude/longitude coordinates. Download from: [EDGE School Geocodes & Geoassignments](https://nces.ed.gov/programs/edge/geographic/schoollocations) — select "Public School District File". The ZIP contains a CSV; the system shall accept the extracted CSV. Select the school year that matches the CCD file.
 
 ### Example data fields expected from source or normalization layer
 - District name
 - State
 - NCES district identifier
+- NCES year (school year from CCD file; used when selecting across multiple upload years)
 - District type / locale classification
 - Enrollment
 - Enrollment bucket
@@ -141,20 +148,23 @@ If some fields are not available directly from NCES, the system may store them a
 
 ## 10.1 NCES Data Upload UI
 
-The system shall provide a small upload UI for NCES CCD district data.
+The system shall provide an upload UI that requires **both** files.
 
 The upload UI shall:
-- accept CSV files in NCES CCD district format
-- validate file format and structure before processing
-- show upload progress and file size
-- link to or describe where to download the latest CCD data from nces.ed.gov
+- accept **two** files: (1) CCD district CSV, (2) EDGE Public LEA Geocode CSV (extracted from ZIP)
+- require both files before allowing upload; clearly label each (e.g., "CCD District File", "EDGE Geocode File")
+- validate file format and structure for both (expected columns, encoding)
+- show upload progress and file sizes
+- link to download pages for both sources:
+  - [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — LEA level
+  - [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — Public School District File
 
-When a valid file is uploaded, the system shall:
-- parse the CSV
-- automatically ingest all district records
-- score completeness for each district
+When both valid files are uploaded, the system shall:
+- parse both CSVs
+- join CCD and EDGE data by LEAID
+- automatically ingest all district records with coordinates from EDGE where matched
 - create an ingestion job record for the upload
-- surface parse/validation errors if the file format is unexpected
+- surface parse/validation errors if either file format is unexpected
 
 ---
 
@@ -164,34 +174,35 @@ The system shall provide an internal moderator-facing ingestion dashboard.
 
 The dashboard shall show:
 - upload area or link to upload new NCES data
-- total districts ingested (from most recent upload)
-- completeness summary (e.g., fully complete, partial, incomplete counts)
+- total districts ingested (scoped to selected NCES year when applicable)
+- NCES year selector (when data has been uploaded across multiple years)
 - most recent upload/ingestion jobs
-- quick access to districts with low completeness or errors
+- quick access to districts with missing data
 
 The dashboard shall support:
 - search by district name
 - filter by state
-- filter by completeness level
-- filter by warning/error state
+- select NCES year (when multiple years have been uploaded)
+- filter by missing-data flag
 
 ---
 
 ## 10.3 District List
 
-The system shall display ingested districts with completeness scores.
+The system shall display ingested districts, optionally scoped by selected NCES year when multiple years have been uploaded.
 
 Each row should show:
 - district name
 - state
 - NCES identifier
-- completeness score or tier (e.g., full, partial, minimal)
-- missing data indicator (which key fields are absent)
+- NCES year (when multiple years exist)
+- missing data flag (indicates district has missing data)
 - last source refresh timestamp (from upload)
 
 The moderator shall be able to:
 - click into a district record to view details and edit
-- filter and search to find districts needing attention
+- filter and search to find districts
+- select a given NCES year to view districts from that year
 
 ---
 
@@ -202,8 +213,7 @@ The system shall provide a district detail screen for viewing and editing.
 The detail screen shall show:
 - raw source values (read-only)
 - normalized app values
-- field-level missing value indicators
-- completeness score
+- field-level missing value indicators (for districts with missing data)
 - source metadata
 
 The moderator shall be able to:
@@ -240,19 +250,19 @@ The system may support:
 
 ---
 
-## 10.6 Error Capture
+## 10.6 Error Capture and Missing Data Flagging
 
-The system shall capture and display upload and ingestion errors.
+The system shall capture upload/ingestion errors and flag districts with missing data.
 
-Error types may include:
+**Upload/ingestion errors** (blocking or recoverable):
 - file parse failure (invalid CSV format)
-- source record not found
-- NCES identifier mismatch
-- validation failure
-- duplicate district conflict
-- required field missing
-- normalization failure
 - database write failure
+
+**Missing data flagging**: Districts that have missing data (any required or recommended fields absent per Data Quality Rules) shall be flagged. The moderator shall be able to:
+- see which districts are flagged as having missing data
+- filter the district list to show only districts with missing data
+- click into a district to see which fields are missing
+- edit districts to correct or add missing data
 
 Each error entry shall include:
 - district name (if applicable)
@@ -261,49 +271,22 @@ Each error entry shall include:
 - human-readable error message
 - timestamp
 - job id
-- retry eligibility (where applicable)
 
 The moderator shall be able to:
 - inspect error details
-- retry eligible failures
 - manually correct via district edit and re-upload if needed
 
 ---
 
-## 10.7 Completeness Scoring
+## 10.7 NCES Year Selection
 
-The system shall automatically score each district's data completeness after ingestion.
+When moderators have uploaded NCES data across multiple years, the system shall allow selecting a given NCES year to view and filter districts.
 
-The completeness score shall reflect:
-- required fields present (district name, state, source identifier, matching anchors)
-- recommended fields present (district type, enrollment bucket, FRL bucket, EL bucket, grade bands)
-- optional fields present
-
-Completeness tiers (e.g., full, partial, minimal) shall be computed per district and displayed in the district list and detail screens.
-
-The system shall identify missing data at:
-- field level
-- record level
-- job summary level
-
-Examples of fields to factor into completeness:
-- district type / locale
-- enrollment or enrollment bucket
-- FRL bucket
-- EL bucket
-- grade bands
-- source timestamp
-
-The UI shall surface:
-- completeness score per district
-- which key fields are missing for low-scoring districts
-- summary counts (e.g., fully complete, partial, minimal) on the dashboard
-
-Possible completeness/warning states:
-- Missing Optional Data
-- Missing Required Matching Data
-- Derived Value Used
-- Source Metadata Incomplete
+The NCES year selector shall:
+- appear on the dashboard and district list when multiple years of data exist
+- scope the displayed district count and list to the selected year
+- persist or default to the most recent year
+- be clearly labeled (e.g., "NCES Year" or "School Year") to distinguish from calendar year
 
 ---
 
@@ -314,7 +297,7 @@ The system shall notify the moderator in the UI when:
 - an upload/ingestion job completes
 - an upload/ingestion job completes with warnings
 - an upload/ingestion job fails
-- missing required data or low completeness is detected
+- districts with missing data are ingested
 
 The system may later support:
 - email notifications for long-running upload jobs
@@ -387,7 +370,7 @@ Possible use cases:
 - normalization rules were updated
 
 The system shall:
-- accept a new upload at any time
+- accept a new dual upload (CCD + EDGE) at any time
 - merge or overwrite per configurable policy (e.g., overwrite by NCES id)
 - warn before overwriting districts that have moderator overrides
 - preserve historical ingestion/upload records
@@ -400,20 +383,18 @@ The system shall:
 Primary screen for moderator operations.
 
 ### Key UI components
-- upload area (drag-and-drop or file picker for NCES CCD CSV)
-- link to NCES CCD download page
+- upload area: two required file inputs (CCD district CSV, EDGE geocode CSV)
+- links to CCD and EDGE download pages
+- NCES year selector (when multiple years have been uploaded)
 - top summary cards
-  - Total Districts
-  - Fully Complete
-  - Partial
-  - Incomplete / Warnings
-- district table (with completeness scores)
-- filter bar (search, state, completeness)
+  - Total Districts (for selected year)
+  - Districts with Missing Data
+- district table (with missing-data flag)
+- filter bar (search, state, NCES year, missing-data)
 - recent upload/jobs panel
 - CTA buttons:
   - Upload New NCES Data
-  - Retry Failed (if applicable)
-  - View Low-Completeness Districts
+  - View Districts with Missing Data
 
 ---
 
@@ -424,10 +405,11 @@ Primary screen for moderator operations.
   - district name
   - state
   - NCES id
-  - completeness score
+  - NCES year (when applicable)
+  - missing data indicator (if applicable)
 - source data card (read-only)
 - normalized data card (editable)
-- missing fields / completeness breakdown
+- missing fields (for districts with missing data)
 - source metadata card
 - action bar
   - Edit
@@ -439,12 +421,11 @@ Primary screen for moderator operations.
 ## 11.3 Upload / Ingestion Job Detail Screen
 
 ### Sections
-- job summary (file name, uploaded at)
+- job summary (file name, uploaded at, NCES year)
 - progress bar
 - live record list (for large uploads)
 - succeeded / warning / failed tabs
-- retry failed button
-- completion summary with completeness breakdown
+- completion summary (including count of districts with missing data)
 
 ---
 
@@ -491,16 +472,14 @@ The system should classify fields into:
 
 ### Moderator
 - view dashboard
-- upload NCES CCD data
-- view district list and completeness scores
+- upload NCES CCD and EDGE geocode data (both required)
+- view district list and select NCES year
 - edit district data
-- retry failed upload/ingestion
-- view warnings/errors
+- view districts with missing data
 
 ### Admin
 - all moderator permissions
 - configure validation rules
-- manage completeness scoring rules
 - view all audit logs
 
 ---
@@ -521,7 +500,7 @@ The system should classify fields into:
 
 ## 14.3 Usability
 - Moderators should be able to upload NCES data with minimal training
-- Completeness scores and missing values should be immediately understandable
+- Missing data flags should be immediately understandable
 - Errors should be actionable and not overly technical
 - Upload and ingestion progress should be visible and clear
 
@@ -597,9 +576,11 @@ For each ingested district, the system should support:
 - `source_record_reference`
 - `source_last_updated_at`
 - `ingested_at`
-- `data_quality_status`
+- `nces_year` (school year from NCES CCD, e.g., 2022 for 2021–22)
+- `latitude`, `longitude` (from EDGE geocode file; NULL if not matched)
+- `geocoded_at` (timestamp when coordinates were set)
+- `has_missing_data` (flag)
 - `missing_fields`
-- `warning_flags`
 - `internal_notes`
 
 ---
@@ -607,11 +588,9 @@ For each ingested district, the system should support:
 ## 17. Success Metrics
 
 - % of uploaded districts successfully ingested
-- % of ingested districts with full vs partial vs minimal completeness
-- % of failed records retried successfully
+- count of districts with missing data (per upload / per NCES year)
 - average time to process upload (by file size)
 - number of moderator edits per ingested district
-- reduction in low-completeness districts over time
 
 ---
 
@@ -621,29 +600,39 @@ For each ingested district, the system should support:
 - Some important fields may require derivation or manual normalization
 - Moderators may not understand whether a warning is safe to ignore
 - Re-ingestion may overwrite intended manual corrections if not handled carefully
-- Source timestamps may vary in completeness
+- Source timestamps may vary in quality or availability
 
 ---
 
 ## 19. Open Questions
 
-- Which CCD file variant (directory vs universe) and columns to support for MVP?
+- Which CCD file variant (directory vs universe) and exact columns to support for MVP?
 - How to handle duplicate NCES IDs across uploads (overwrite, merge, skip)?
 - Should re-upload preserve moderator overrides automatically or prompt?
 - Will the system store raw NCES records verbatim, or only transformed snapshots?
-- Completeness tier thresholds (e.g., what counts as full vs partial vs minimal)?
+- Which fields define "missing data" for the flag (required vs optional)?
 
 ---
 
 ## 20. Recommended MVP Decisions
 
-- Use **NCES CCD CSV upload** as the district data input; no pre-seeded district list
-- Accept standard CCD district file format; validate and parse on upload
+- Use **dual file upload** (CCD district CSV + EDGE geocode CSV) as the district data input; no pre-seeded district list
+- Accept standard CCD LEA directory format and EDGE Public LEA Geocode format; validate and parse both; join by LEAID
 - Allow:
   - upload NCES file → automatic ingestion of all districts
-  - browse districts with completeness scores
+  - browse districts and select NCES year when multiple years have been uploaded
   - edit districts when moderator wants to correct or enrich
-- Compute completeness score automatically per district (required vs recommended vs optional fields)
-- Treat missing matching-critical fields as completeness downgrade; surface in UI for editing
+- Flag districts that have missing data; surface in UI for editing
 - Preserve source values separately from moderator overrides
 - Make upload/ingestion asynchronous with visible progress and retry support
+
+---
+
+## Appendix A: Download Links
+
+| File | Purpose | Download |
+|------|---------|----------|
+| **CCD LEA directory** | District names, state, LEAID, enrollment, FRL, EL, grade bands, etc. | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year; download CSV |
+| **EDGE Public LEA Geocode** | Latitude, longitude, locale for each district (LEAID) | [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — "Public School District File"; extract CSV from ZIP |
+
+**Important:** Select matching school years for both files (e.g., 2024–25 for both). The EDGE file URL pattern by year: `https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICLEA_XXXX.zip` where XXXX = 2425 (2024–25), 2324 (2023–24), etc.

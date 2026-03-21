@@ -100,18 +100,14 @@ Add geographic coordinates to `district_candidates`:
 
 **Indexes:** `(latitude, longitude)` for spatial queries if needed (optional for MVP).
 
-### 8.2 Geocoding Strategy
+### 8.2 Coordinate Population Strategy
 
-Coordinates must be populated before the map can display markers. Options (implement at least one):
+Coordinates must be populated before the map can display markers.
 
-1. **Nominatim (OpenStreetMap)** — free, rate-limited (1 req/sec typical). Geocode `{district name}, {state}, USA`.
-2. **Google Geocoding API** — paid, higher accuracy. Use same query format.
-3. **NCES / EdFacts** — if NCES provides district-level lat/long, use as primary source; fallback to geocoder.
-4. **Static lookup table** — one-time manual or script-generated JSON/CSV for districts, loaded via migration script.
+**Primary source:** NCES EDGE Public LEA Geocode file. Moderators upload this file together with the CCD district file. The system joins CCD and EDGE by LEAID and populates `latitude`, `longitude`, `geocoded_at` for each matched district at ingestion time. See [district-data-ingestion PRD](district-data-ingestion.md) §10.1 (dual file upload).
 
-The enrichment script shall:
-- Process all `district_candidates` with `latitude IS NULL` or `geocoded_at IS NULL`
-- Respect rate limits (e.g., 1 req/sec for Nominatim)
+**Fallback:** For districts not in EDGE or with missing coordinates, an optional enrichment script may call Nominatim (1 req/sec) or another geocoder to populate coordinates. The script shall:
+- Process `district_candidates` where `latitude IS NULL`
 - Store `latitude`, `longitude`, `geocoded_at` on success
 - Log failures; leave NULL for retry
 - Be idempotent and rerunnable
@@ -173,9 +169,9 @@ The system shall expose one or more endpoints to support the map:
 
 **Option 2:** New `GET /admin/ingestion/map-data` returning only fields needed for the map (id, name, state, status/completeness, lat, lng) with no pagination, for all districts matching filters.
 
-## 9.5 Geocoding Enrichment
+## 9.5 Coordinate Enrichment
 
-The system shall provide a script or command to populate coordinates:
+Coordinates are primarily populated from the EDGE geocode file at upload. The system may provide an optional fallback script to populate coordinates for districts missing from EDGE:
 - `npm run geocode:district-candidates` or equivalent
 - Script shall process districts missing coordinates
 - Script shall be idempotent and safe to rerun
@@ -251,7 +247,7 @@ The system shall provide a script or command to populate coordinates:
 **Priority order:**
 
 1. **Schema migration** — Add `latitude`, `longitude`, `geocoded_at` to district table
-2. **Geocoding script** — Implement enrichment script; run for districts missing coordinates
+2. **Coordinates** — Populated from EDGE file at upload (join by LEAID); optional fallback geocoding script for unmatched districts
 3. **API** — Add map-data endpoint or extend candidates endpoint with coordinates
 4. **Map library** — Add Leaflet (or chosen lib) to frontend; create map component
 5. **Marker rendering** — Connect API data to markers; implement status-based styling
@@ -262,7 +258,7 @@ The system shall provide a script or command to populate coordinates:
 **Critical guidance:**
 
 - Start with a minimal map (single hardcoded marker) to validate library and tile loading
-- Geocode in batches with delay to avoid rate limits
+- Coordinates from EDGE at ingestion; fallback geocode script in batches with delay if needed
 - Consider caching tile requests or using a CDN for base maps
 - Test with a subset of districts first (e.g., 10) before full run
 
@@ -316,7 +312,6 @@ The system shall provide a script or command to populate coordinates:
 
 ## 16. Open Questions
 
-- Should new districts be geocoded automatically during upload/ingestion, or only via periodic enrichment?
 - Should we support manual lat/lng override for districts that geocode incorrectly?
 - Is a single map view sufficient, or should we support multiple views (e.g., by district type)?
 - Should the map replace or supplement the table view in the default dashboard layout?
@@ -335,7 +330,7 @@ The system shall provide a script or command to populate coordinates:
 ## 18. Recommended MVP Decisions
 
 - Add `latitude`, `longitude`, `geocoded_at` to district table via migration
-- Use Nominatim for geocoding (free, no API key); implement rate limiting and retries
+- Coordinates from EDGE geocode file at dual upload (join by LEAID); optional Nominatim fallback script for unmatched districts
 - Use Leaflet + react-leaflet with OpenStreetMap tiles
 - Add `GET /admin/ingestion/map-data` returning id, name, state, status/completeness, lat, lng for filtered districts
 - Integrate map as a tab or link in the ingestion console: "Table" | "Map"

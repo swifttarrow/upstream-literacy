@@ -2,7 +2,7 @@
 
 Major product and technical decisions are captured here to preserve implementation context.
 
-## Research - General
+## Research
 
 The entries below capture the current research-phase decisions and product direction.
 
@@ -78,7 +78,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Implement controlled membership governance, thread-level topic organization, and optional temporary cohorts (small, time-bound, moderator/system-created) instead of creating new permanent community objects.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] User base restricted to district staff only
+### [2026-03-20] User base restricted to district staff only
 
 **Context:** We needed to define who is in-scope for membership so community trust, relevance, and moderation rules are clear from the start.
 **Options considered:** (A) Mixed membership including vendors/consultants/company representatives vs (B) school district staff only.
@@ -87,7 +87,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Onboarding and verification should enforce district-staff eligibility; access policies and moderation guidelines should explicitly exclude non-district external roles.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Members can belong to multiple problem areas
+### [2026-03-20] Members can belong to multiple problem areas
 
 **Context:** We needed to decide whether problem-area membership should force a single primary category or allow multi-membership across concurrent needs.
 **Options considered:** (A) Single problem-area assignment per member vs (B) multiple problem-area memberships per member.
@@ -96,7 +96,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Data model and matching logic should support many-to-many member-to-problem-area relationships, with filtering and ranking aware of multiple active affinities.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Group conversations supported alongside 1-on-1 messaging
+### [2026-03-20] Group conversations supported alongside 1-on-1 messaging
 
 **Context:** We needed to define conversation modes to support both direct peer exchanges and collaborative discussions across small sets of members.
 **Options considered:** (A) 1-on-1 messaging only vs (B) support both 1-on-1 and group conversations.
@@ -105,7 +105,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Messaging architecture, permissions, and UX should support participant-managed multi-user threads, while retaining existing controls for direct conversations.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Company moderation posture remains neutral and passive
+### [2026-03-20] Company moderation posture remains neutral and passive
 
 **Context:** We needed to define how visible and interventionist company moderation should be during member conversations.
 **Options considered:** (A) Active/high-touch company moderation in discussions vs (B) neutral/passive moderation that intervenes only when needed.
@@ -114,7 +114,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Moderation playbooks should prioritize minimal interruption, clear escalation thresholds, and targeted interventions rather than frequent in-thread company presence.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] MVP uses one unified network directory
+### [2026-03-20] MVP uses one unified network directory
 
 **Context:** We needed to choose an MVP network structure that maximizes early connection density while minimizing onboarding complexity.
 **Options considered:** (A) One unified network where all users are in a single directory with filters vs (B) multiple segmented community directories from day one.
@@ -123,7 +123,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Discovery should support filtering by district attributes, problem statements, role, and geography (for example: "show suburban districts, 5k-15k students, working on literacy interventions"); product and ranking design should prioritize relevance controls to prevent broad/noisy results.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] MVP starts with a small, high-confidence district dataset
+### [2026-03-20] MVP starts with a small, high-confidence district dataset
 
 **Context:** We needed to define the initial district data scope for matching and filtering without overfitting the model to noisy or hard-to-maintain fields.
 **Options considered:** (A) Ingest broad/complete district data from the start vs (B) launch with a small set of high-confidence, high-signal attributes.
@@ -132,7 +132,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** MVP data model should include: district type (urban/suburban/rural), enrollment size in buckets (for example: <2k, 2k-10k, 10k-50k, 50k+), state/region, % free/reduced lunch in buckets, % English learners in buckets, and grade bands (for example: K-5, 6-8, 9-12); avoid relying on exact values where bucketed ranges are sufficient.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Messaging allows direct outreach with shared context
+### [2026-03-20] Messaging allows direct outreach with shared context
 
 **Context:** We needed a messaging model that enables fast peer connection while keeping outreach relevant and reducing low-context cold starts.
 **Options considered:** (A) Require approval gates before any direct messaging vs (B) allow direct messaging between matched peers with contextual scaffolding.
@@ -141,7 +141,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Messaging UX should include contextual metadata in compose/send flows; policy should keep direct messaging tied to matched-peer relationships.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Cold start uses expanded criteria and optional seed profiles
+### [2026-03-20] Cold start uses expanded criteria and optional seed profiles
 
 **Context:** We needed a fallback approach for early-stage or sparse-network moments when exact matches may be limited.
 **Options considered:** (A) Show no or very few results when strict criteria fail vs (B) progressively broaden criteria and optionally surface seeded/demo profiles.
@@ -150,7 +150,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Matching should support tiered recall expansion with clear labeling of close matches; seed/demo profiles must be clearly governed and identifiable in operational policy.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Profile completion gating is soft, not hard
+### [2026-03-20] Profile completion gating is soft, not hard
 
 **Context:** We needed to balance low-friction onboarding with minimum profile quality required for high-value interactions.
 **Options considered:** (A) Hard gate all exploration until full profile completion vs (B) allow browsing immediately and gate key actions until essential fields are complete.
@@ -159,7 +159,7 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Access control should enforce action-level prerequisites; onboarding UX should prominently guide users to complete required fields before interaction unlock.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Group conversations can be user-created
+### [2026-03-20] Group conversations can be user-created
 
 **Context:** We needed to define whether small-group collaboration should require moderator setup or be user-driven.
 **Options considered:** (A) Moderator/system-created groups only vs (B) user-created small-group conversations around shared needs.
@@ -168,12 +168,96 @@ The entries below capture the current research-phase decisions and product direc
 **Impact:** Messaging and permissions should support user-initiated group thread creation, membership controls, and moderation safeguards appropriate for group contexts.
 **Owner:** Agent (Codex) + developer confirmation pending
 
-## [2026-03-20] Product direction is community-first with matching foundation
+### [2026-03-20] Product direction is community-first with matching foundation
 
 **Context:** We needed to clarify the primary product posture between utility-first matching alone and ongoing community engagement.  
 **Options considered:** (A) Match-first transactional experience only vs (B) community-first experience powered by structured matching.  
 **Decision:** Prioritize a community-driven experience focused on interaction, conversation, and ongoing engagement, while keeping structured matching as the foundation.  
 **Rationale:** Community-first dynamics increase retention and collective value over time, and matching remains the mechanism that anchors relevance and quality.  
 **Impact:** Roadmap and UX should emphasize conversational surfaces, repeat engagement loops, and community activity signals in addition to core matching performance.  
-**Owner:** Agent (Codex) + developer confirmation pendin
+**Owner:** Agent (Codex) + developer confirmation pending
 
+## Research - Architecture
+
+The entries below capture architecture and operating-model decisions for MVP.
+
+### [2026-03-20] Audience scope remains district-staff only
+
+**Context:** MVP needed a clear membership boundary to keep trust high and moderation manageable.
+**Options considered:** (A) Include vendors/consultants/company reps in-network vs (B) restrict to school district staff only.
+**Decision:** Initial audience is school district staff only.
+**Rationale:** A focused peer audience improves signal quality, reduces commercial noise, and simplifies moderation policy in early phases.
+**Impact:** Identity and access rules should enforce district-staff eligibility and explicitly block non-district external roles.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] Unified network with community layer on top
+
+**Context:** We needed to choose a core network topology that maximizes early discovery while avoiding brittle structural partitions.
+**Options considered:** (A) Hard-partitioned communities as primary containers vs (B) one unified directory with community experience layered through conversation surfaces.
+**Decision:** Use a single unified network for discovery/matching; implement community experience through messaging and group interactions rather than hard partitions.
+**Rationale:** Unified topology maximizes match opportunities and reduces fragmentation while still enabling community feel through interaction design.
+**Impact:** Discovery should query one shared member graph; community UX should be delivered by conversation/group mechanics instead of strict membership silos.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] Problem-first matching with primary and secondary signals
+
+**Context:** Matching needed an explicit relevance hierarchy for predictable results and explainability.
+**Options considered:** (A) District-demographic-first matching vs (B) shared-problem-first matching with district attributes as refinement.
+**Decision:** Matching prioritizes shared problem statements as the primary signal; users choose one primary problem plus optional secondary tags; district attributes refine ranking.
+**Rationale:** Problem-first logic maximizes actionable peer connections while still preserving contextual fit through district similarity.
+**Impact:** Matching logic should weight primary problem highest, include secondary tags and district signals, return exact vs close matches, and generate explanations from scoring inputs (for example: "same problem + similar district size").
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] District data model uses normalized, source-labeled snapshots
+
+**Context:** MVP data ingestion required trustworthy public attributes without overfitting to noisy or overly precise values.
+**Options considered:** (A) Broad raw ingestion with exact values and overwrite updates vs (B) curated high-confidence attributes with normalization and snapshot versioning.
+**Decision:** Use a small, high-confidence attribute set with bucketed values; store public data separately from user-provided data; source-label and timestamp public records; version district updates via snapshots.
+**Rationale:** Normalized and versioned data improves trust, auditability, and consistency while keeping early implementation practical.
+**Impact:** District data pipelines must bucket fields (enrollment, FRL, EL, grade bands), preserve provenance/timestamps, separate public vs user-entered tables/fields, and keep historical snapshots instead of destructive overwrite.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] Messaging model supports direct, contextual, real-time conversations
+
+**Context:** Conversation UX needed to feel immediate and relevant while keeping early engagement friction low.
+**Options considered:** (A) Approval-heavy or polling-based messaging vs (B) direct matched-peer messaging with context prompts and websocket real-time delivery.
+**Decision:** Allow direct messaging between matched peers without extra approval friction; include contextual prompts in compose flow; implement true real-time messaging via websockets.
+**Rationale:** Lower friction improves engagement, contextual scaffolding keeps outreach relevant, and real-time behavior matches community-product expectations.
+**Impact:** Conversation services should support websocket delivery and future presence/typing signals; compose UX should surface shared context; direct message eligibility remains tied to matching policy.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] Group formation is matched-user constrained
+
+**Context:** Group collaboration needed to be user-driven without opening spammy or low-relevance group creation patterns.
+**Options considered:** (A) Open group creation from any users vs (B) user-created groups restricted to matched users.
+**Decision:** Support both 1:1 and group conversations; groups are user-created but only from matched users, with small-group cap of 8 participants.
+**Rationale:** This preserves collaboration flexibility while reinforcing relevance and limiting abuse vectors.
+**Impact:** Conversation model should unify DM/group entities with participant join tables; group-creation UI must enforce matched-user eligibility and max-size constraints.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] Soft gating and cold-start fallbacks are first-class
+
+**Context:** MVP needed to reduce onboarding drop-off while preventing low-context messaging and empty match states.
+**Options considered:** (A) Hard pre-browse profile completion and strict exact-only matching vs (B) browse-first soft gating plus progressive close-match fallback and optional seed profiles.
+**Decision:** Users can browse immediately, but messaging unlocks only after district plus primary problem are set; matching broadens to close matches when needed and may include seeded/demo profiles.
+**Rationale:** This combination balances activation, quality, and perceived utility during early network density.
+**Impact:** Access control should enforce action-level profile prerequisites; match ranking should support expansion tiers and clear labeling for close/seeded results.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] Moderation is neutral/reactive and AI remains user-scoped
+
+**Context:** We needed a safety model that protects trust without creating heavy-handed platform visibility into all conversations.
+**Options considered:** (A) Proactive global moderation and broad AI scanning vs (B) neutral/reactive moderation with report-driven deep access and user-scoped AI features.
+**Decision:** Company moderation is neutral/passive and primarily reactive; moderators can view cross-conversation metadata but full content only for reported conversations; MVP AI operates only on conversations a user participates in.
+**Rationale:** This approach enforces safety while minimizing unnecessary surveillance and preserving authentic peer interaction.
+**Impact:** Moderation tooling should center on reporting, escalation, and audit logs; AI services must enforce strict conversation-level access controls with no global cross-network scanning in MVP.
+**Owner:** Agent (Codex) + developer confirmation pending
+
+### [2026-03-20] MVP architecture is modular monolith on relational database
+
+**Context:** We needed an implementation architecture that optimizes for MVP speed while preserving clean boundaries for future scaling.
+**Options considered:** (A) Early microservices plus dedicated search stack vs (B) modular monolith with relational DB, DB filtering, and app-layer scoring.
+**Decision:** Build MVP as a modular monolith backed by a relational database (Postgres-class), use DB-driven filtering plus application-layer deterministic scoring, and defer dedicated search infra until scale warrants it.
+**Rationale:** This maximizes delivery speed and consistency for relationship-heavy data while avoiding premature distributed complexity.
+**Impact:** System domains should be explicitly separated (Identity and Access, District Data, Problem Taxonomy, Discovery and Matching, Conversations, Moderation and Admin, Notifications); async jobs should handle ingestion/normalization/notifications/future analytics; deferred items include ML matching, global AI insights, microservices decomposition, and advanced search infrastructure.
+**Owner:** Agent (Codex) + developer confirmation pending

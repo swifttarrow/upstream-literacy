@@ -6,16 +6,16 @@
 
 | # | Milestone | Status |
 |---|-----------|--------|
-| 1 | [m1-foundation-project-setup-db-auth](./m1-foundation-project-setup-db-auth/) | Pending |
-| 2 | [m2-user-profiles-districts-taxonomy](./m2-user-profiles-districts-taxonomy/) | Pending |
-| 3 | [m3-district-data-ingestion-admin-overrides](./m3-district-data-ingestion-admin-overrides/) | Pending |
-| 4 | [m4-discovery-matching-connections](./m4-discovery-matching-connections/) | Pending |
-| 5 | [m5-conversations-realtime-messaging](./m5-conversations-realtime-messaging/) | Pending |
-| 6 | [m6-groups-participant-management](./m6-groups-participant-management/) | Pending |
-| 7 | [m7-moderation-reports-review-suspension](./m7-moderation-reports-review-suspension/) | Pending |
-| 8 | [m8-notifications](./m8-notifications/) | Pending |
-| 9 | [m9-ai-features-user-scoped](./m9-ai-features-user-scoped/) | Pending |
-| 10 | [m10-frontend-polish](./m10-frontend-polish/) | Pending |
+| 1 | [m1-foundation-project-setup-db-auth](./m1-foundation-project-setup-db-auth/) | Complete |
+| 2 | [m2-user-profiles-districts-taxonomy](./m2-user-profiles-districts-taxonomy/) | Complete |
+| 3 | [m3-district-data-ingestion-admin-overrides](./m3-district-data-ingestion-admin-overrides/) | Complete |
+| 4 | [m4-discovery-matching-connections](./m4-discovery-matching-connections/) | Complete |
+| 5 | [m5-conversations-realtime-messaging](./m5-conversations-realtime-messaging/) | Complete |
+| 6 | [m6-groups-participant-management](./m6-groups-participant-management/) | Complete |
+| 7 | [m7-moderation-reports-review-suspension](./m7-moderation-reports-review-suspension/) | Complete |
+| 8 | [m8-notifications](./m8-notifications/) | Complete |
+| 9 | [m9-ai-features-user-scoped](./m9-ai-features-user-scoped/) | Complete |
+| 10 | [m10-frontend-polish](./m10-frontend-polish/) | Complete |
 | 11 | [m11-ingestion-console-foundation](./m11-ingestion-console-foundation/) | Complete |
 | 12 | [m12-ingestion-dashboard-candidates](./m12-ingestion-dashboard-candidates/) | Complete |
 | 13 | [m13-ingestion-preview-and-ingest-flow](./m13-ingestion-preview-and-ingest-flow/) | Complete |

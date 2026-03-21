@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implementation plan for the District Community Matching Platform per [prd.md](../../prd.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations.
+Implementation plan for the District Community Matching Platform per [prd.md](prd.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations.
 
 ## Current State Analysis
 

@@ -7,7 +7,7 @@ Generated using `agent/prompts/modeling.md` against `prd.md`.
 ## 1. PRD source used
 
 - **File:** `prd.md` (root of this repo)
-- **Assumptions extracted:** Modular monolith, Postgres, identity + districts + taxonomy + matching + conversations + moderation + notifications + user-scoped AI; no ML graph, no public feed; groups max 8 from matched users only; soft gate for messaging (district + primary problem); seeded/demo possible for cold start; moderation with metadata-for-all / content-only-when-reported is primarily an **application authorization** concern, not a column-per-row visibility model in the DB.
+- **Assumptions extracted:** Modular monolith, Postgres, identity + districts + taxonomy + matching + connections + conversations + moderation + notifications + user-scoped AI; no ML graph, no public feed; groups max 8 from connected users only; soft gate for messaging (district + primary problem); seeded/demo possible for cold start; moderation with metadata-for-all / content-only-when-reported is primarily an **application authorization** concern, not a column-per-row visibility model in the DB.
 
 ---
 
@@ -42,6 +42,7 @@ Generated using `agent/prompts/modeling.md` against `prd.md`.
 - `district_admin_overrides` — override rows (separate from ingest)  
 - `problem_categories`, `problem_statements` — admin-managed taxonomy  
 - `user_problem_selections` — primary + secondaries  
+- `user_connections` — LinkedIn-style connections (pending | accepted); gate for messaging  
 - `conversations`, `conversation_participants` — direct + group  
 - `conversation_direct_pairs` — stable uniqueness for 1:1 threads  
 - `messages`  
@@ -214,6 +215,29 @@ Generated using `agent/prompts/modeling.md` against `prd.md`.
 
 ---
 
+### `user_connections` (LinkedIn-style)
+
+| Column | Type | Null | Default |
+|--------|------|------|---------|
+| id | uuid | NO | gen_random_uuid() |
+| user_a_id | uuid | NO | — |
+| user_b_id | uuid | NO | — |
+| status | connection_status | NO | 'pending' |
+| requested_by_user_id | uuid | NO | — |
+| created_at | timestamptz | NO | now() |
+| resolved_at | timestamptz | YES | — |
+
+**PK:** `id`  
+**UNIQUE:** `(user_a_id, user_b_id)`  
+**CHECK:** `user_a_id < user_b_id`; `requested_by_user_id` must be user_a or user_b  
+**FKs:** user_a_id, user_b_id, requested_by_user_id → users  
+**Indexes:** `(user_a_id)`, `(user_b_id)`, `(status)`, `(requested_by_user_id)`  
+**Enum:** `connection_status` ('pending', 'accepted')  
+
+Messaging gate: only users with `status = 'accepted'` can direct message. Groups can add participants only from accepted connections.
+
+---
+
 ### `conversations`
 
 | Column | Type | Null | Default |
@@ -375,6 +399,7 @@ Generated using `agent/prompts/modeling.md` against `prd.md`.
 - **districts — overrides:** one-to-many  
 - **categories — problems:** one-to-many  
 - **users — problem statements:** many-to-many via `user_problem_selections` (at most one `is_primary` per user)  
+- **users — users:** many-to-many via `user_connections` (LinkedIn-style; status pending | accepted)  
 - **conversations — users:** many-to-many via `conversation_participants`; direct threads also `conversation_direct_pairs`  
 - **conversations — messages:** one-to-many  
 - **reports — moderation_actions:** one-to-many  
@@ -393,7 +418,8 @@ Generated using `agent/prompts/modeling.md` against `prd.md`.
 | Report lifecycle | **Enum** `report_status` |
 | Report target | **Enum** `report_target_type` |
 | Moderation action | **Enum** `moderation_action_type` |
-| Notification type | **Enum** `notification_type` |
+| Notification type | **Enum** `notification_type` (includes `connection_request`, `connection_accepted`) |
+| Connection status | **Enum** `connection_status` |
 | Taxonomy visibility | **Enum** `taxonomy_status` |
 | AI artifact kind | **Enum** `ai_artifact_kind` |
 | District value provenance | **Enum** `district_value_provenance` |
@@ -437,22 +463,23 @@ Generated using `agent/prompts/modeling.md` against `prd.md`.
 8. `problem_categories`  
 9. `problem_statements`  
 10. `user_problem_selections`  
-11. `conversations`  
-12. `conversation_direct_pairs`  
-13. `conversation_participants`  
-14. `messages`  
-15. `reports`  
-16. `moderation_actions`  
-17. `audit_log_entries`  
-18. `notifications`  
-19. `user_ai_artifacts`  
-20. Triggers (group size, timestamps)  
+11. `user_connections` (see `schema/06b_user_connections.sql`)  
+12. `conversations`  
+13. `conversation_direct_pairs`  
+14. `conversation_participants`  
+15. `messages`  
+16. `reports`  
+17. `moderation_actions`  
+18. `audit_log_entries`  
+19. `notifications`  
+20. `user_ai_artifacts`  
+21. Triggers (group size, timestamps)  
 
 ---
 
 ## 11. SQL DDL
 
-See **`schema/01_extensions_enums.sql`** through **`schema/10_triggers.sql`** (in order) for PostgreSQL `CREATE TYPE` / `CREATE TABLE` / indexes / triggers.
+See **`schema/01_extensions_enums.sql`** through **`schema/10_triggers.sql`** (in order, including **`schema/06b_user_connections.sql`** after `06_user_problem_selections.sql`) for PostgreSQL `CREATE TYPE` / `CREATE TABLE` / indexes / triggers.
 
 ---
 
@@ -489,7 +516,7 @@ See **`schema/01_extensions_enums.sql`** through **`schema/10_triggers.sql`** (i
 1. **Normalization:** `district_effective_attribute_values` duplicates “current” state derived from ingest+override—acceptable for read performance; must keep in sync in transactions when ingesting/overriding.  
 2. **Bottlenecks:** `messages` by `conversation_id`; `notifications` by `user_id`; matching may scan `users` + selections—index `(problem_statement_id)` on `user_problem_selections` for reverse lookups.  
 3. **Missing indexes:** Add `(problem_statement_id)` on `user_problem_selections`; consider GIN on `district_ingestion_events.normalized_attributes` only if you filter inside JSON.  
-4. **DB vs app:** Messaging soft-gate (district + primary problem), “matched users only” group formation, and match ranking/explanation are **app-layer**; group size **DB trigger + app**.  
+4. **DB vs app:** Messaging soft-gate (district + primary problem), “connected users only (per user_connections)” group formation, and match ranking/explanation are **app-layer**; group size **DB trigger + app**.  
 5. **Enums vs text:** Reason codes as text in MVP—promote to lookup when admins edit codes.  
 6. **Premature tables:** None mandatory beyond this set; **do not** add ML/match graph tables until PRD changes.  
 7. **Clarify with product:** Whether suspended users’ messages remain visible; whether moderators can read all message bodies without a report (PRD suggests content only when reported—**purely operational/API**, not schema).

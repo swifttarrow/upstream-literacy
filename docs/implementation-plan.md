@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations.
+Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations. District data is managed via an internal [Ingestion Console](prds/district-data-ingestion.md) (moderator-facing UI for ingest, preview, edit, audit).
 
 ## Current State Analysis
 
@@ -43,7 +43,7 @@ See `developer-log.md` for decision rationale.
 **Specification:** Full MVP as defined in PRD §12 and §8, including:
 
 1. Auth + profiles (district, role, bio, primary/secondary problems)
-2. District data ingestion, normalization, display, admin overrides
+2. District data ingestion (moderator console: 100-district seed, preview, ingest, progress, errors, post-ingestion edit, audit) — per [district-data-ingestion PRD](prds/district-data-ingestion.md); map view for geographic coverage — per [district-data-visualization PRD](prds/district-data-visualization.md)
 3. Problem taxonomy (admin-managed, categorized)
 4. Discovery & matching (filter by problem, district, role, geography; ranked results; exact vs close match; match explanations)
 5. Connections (send/accept requests; gate for messaging)
@@ -145,16 +145,21 @@ Implement profile CRUD, district lookup, and problem taxonomy. Enables profile c
 
 ### Overview
 
-Ingest public district data into `district_ingestion_events`, compute `district_effective_attribute_values`, and support admin overrides. Seed initial attribute definitions and demo data for cold start.
+Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md): moderator-facing Ingestion Console with 100 real district candidates, preview-before-ingest, UI-triggered ingestion (single and batch), progress tracking, error capture, missing data flagging, post-ingestion editing, and audit logging. Backend: attribute definitions, ingestion jobs, admin overrides, provenance display. Implemented via milestones m11–m15.
 
 ### Changes Required
 
 | Area | Changes |
 |------|---------|
-| **Attribute definitions** | Seed `district_attribute_definitions` (per db-schema.md MVP set: type, enrollment, state, FRL, EL, grade bands) |
-| **Ingestion** | Job/script: parse source → normalize → insert `district_ingestion_events`; merge into `district_effective_attribute_values` |
-| **Admin overrides** | `POST/PATCH /admin/districts/:id/overrides`; insert/update `district_admin_overrides`; recompute effective values |
-| **Display** | Existing district endpoints surface `provenance`, `last_ingestion_event_id`, `last_override_id` where relevant |
+| **District candidates** | Seed 100 real districts (NCES-backed); `district_candidates` table; status per candidate (not_ingested, ingested, failed, etc.) |
+| **Attribute definitions** | Seed `district_attribute_definitions` (type, enrollment, FRL, EL, grade bands); per db-schema.md MVP set |
+| **Ingestion** | Job model: parse source → normalize → insert `district_ingestion_events`; merge into `district_effective_attribute_values`; async (pg-boss) for batch |
+| **Ingestion Console API** | Dashboard summary; candidate list (filters: state, status, search); preview; trigger ingest; job progress; retry failed |
+| **Admin overrides** | `PATCH /admin/ingestion/districts/:id`; insert/update `district_admin_overrides`; recompute effective values; revert to source |
+| **Errors & data quality** | Capture ingestion errors (type, message, retry_eligible); missing data flags; display in UI |
+| **Moderator UI** | Dashboard (summary cards, candidate table, filters); district preview screen; ingest trigger; job progress view; district edit screen |
+| **Audit** | Log: preview viewed, ingestion started/completed, district edited, override reverted |
+| **Display** | District endpoints surface `provenance`, `last_ingestion_event_id`, `last_override_id` |
 | **Demo/seed** | Optional seed script for demo districts and users (`is_demo = true`) |
 
 ### Success Criteria
@@ -163,10 +168,16 @@ Ingest public district data into `district_ingestion_events`, compute `district_
 - [x] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
 - [x] Admin override updates effective values correctly
 - [x] Source/timestamp visible in district API responses
+- [x] Moderator can trigger ingestion from API; job progresses; errors captured
+- [x] 100 district candidates seeded with NCES mappings
 
 #### Manual Verification
+- [x] Moderator sees ingestion dashboard with candidate list, filters, summary
+- [x] Moderator can preview district before ingest, trigger ingest, view progress
 - [x] Districts show ingested attributes with provenance
-- [x] Admin can override a value and see updated display
+- [x] Moderator can edit ingested district; override visible; revert to source works
+- [x] Errors and missing data surfaced; retry available for eligible failures
+- [x] Audit trail queryable for ingestion actions
 - [x] Demo data available for cold-start testing
 
 **Note:** Pause for human confirmation after this phase before proceeding.
@@ -400,6 +411,7 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 | **Groups** | Create group, add/remove participants, group conversation view |
 | **Notifications** | Bell/indicator, list, mark read |
 | **Moderation** | Admin/moderator: report queue, actions |
+| **Ingestion Console** | Moderator: dashboard, candidate list, preview, ingest, progress, district edit (per district-data-ingestion PRD); map view with markers (per district-data-visualization PRD) |
 | **Polish** | Loading states, error handling, accessibility, performance |
 
 ### Success Criteria
@@ -414,6 +426,80 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 - [x] Match explanations clear and useful
 - [x] Real-time messaging feels responsive
 - [x] Moderation workflow usable by moderator
+- [x] Ingestion console usable by moderator (dashboard, preview, ingest, edit, audit)
+- [ ] Map view usable by moderator (markers, filters, click-through to preview)
+
+---
+
+## Phase 11: District Data Visualization (Map View)
+
+Add an interactive map view to the ingestion console per [district-data-visualization PRD](prds/district-data-visualization.md). Moderators see district candidates as point markers (color-coded by ingestion status), filter by status/state/search, and click through to district preview. Extends the existing ingestion console.
+
+**End state:** Map with "Table" \| "Map" tab; markers colored by status; filters update markers; click → candidate preview. Districts without coordinates excluded; count shown. Geocoding via `npm run geocode:district-candidates`. A simple map with working markers beats a complex map with broken geocoding.
+
+**Out of scope:** District boundary polygons; geocoding at ingestion time; real-time geocoding; clustering; public or mobile map UX.
+
+**Technical decisions:** Nominatim (geocoding); Leaflet + react-leaflet (map); `GET /admin/ingestion/map-data` (dedicated endpoint); tab "Table" \| "Map" integration.
+
+---
+
+### Phase 11.1: Schema & Geocoding Enrichment
+
+Add latitude, longitude, geocoded_at to district_candidates. Implement and run geocoding script using Nominatim.
+
+| Area | Changes |
+|------|---------|
+| **Schema** | New `schema/12_district_candidates_geocode.sql`: `ALTER TABLE district_candidates ADD COLUMN latitude numeric(9,6)`, `longitude numeric(9,6)`, `geocoded_at timestamptz` |
+| **Geocoding script** | `backend/scripts/geocode-district-candidates.ts`: fetch candidates with `latitude IS NULL`; for each, call Nominatim `{name}, {state}, USA`; 1 req/sec delay; update row; log success/failure |
+| **Package.json** | Add `"geocode:district-candidates"` script |
+| **Nominatim** | Use `https://nominatim.openstreetmap.org/search?q=...&format=json`; set User-Agent header per OSM policy |
+
+**Success:** Migration runs; script processes candidates; rows updated with lat/lng where geocode succeeds. Run 10 districts first, then full 100. Script idempotent.
+
+---
+
+### Phase 11.2: Map Data API
+
+Expose endpoint to return district candidates with coordinates for map rendering.
+
+| Area | Changes |
+|------|---------|
+| **API** | `GET /admin/ingestion/map-data` — params: `search`, `state`, `status`; returns `{ districts: [{ id, name, state, status, latitude, longitude }] }`; exclude rows with NULL lat/lng; no pagination; limit 500 |
+| **Auth** | Same middleware as ingestion: `authenticate`, `requireModerator` |
+| **Validation** | Zod schema for query params |
+| **Routes** | Add in `backend/src/routes/ingestion.ts` |
+
+**Success:** Returns 200 with districts array; filters reduce result set; 401/403 for unauthenticated; < 500ms for 100 districts.
+
+---
+
+### Phase 11.3: Map Component & Integration
+
+Add Leaflet + react-leaflet; create map component; integrate as "Table" \| "Map" tab.
+
+| Area | Changes |
+|------|---------|
+| **Frontend deps** | `leaflet`, `react-leaflet`, `@types/leaflet` |
+| **Map component** | `frontend/src/components/IngestionMap.tsx` — client component; fetch map-data; MapContainer, TileLayer (OSM), Markers; color by status (green/orange/gray/blue/yellow/red); popup → link to `/admin/ingestion/candidates/[id]` |
+| **Ingestion page** | Add "Table" \| "Map" tabs; reuse filter bar state for map |
+| **Styling** | Map min-height 400px; legend; "X districts missing coordinates" when any excluded |
+
+**Success:** `npm run build` succeeds; map displays markers; zoom/pan; click → preview; filters update markers; loads in < 3s.
+
+---
+
+### Phase 11.4: Polish & Edge Cases
+
+Legend, loading states, error handling, empty state, documentation.
+
+| Area | Changes |
+|------|---------|
+| **Legend** | Status → color mapping visible |
+| **Empty state** | "No districts with coordinates" or "Run geocoding script" when all missing |
+| **Error handling** | API failure shows message; retry or link to docs |
+| **Docs** | How to run geocoding script; when to re-run |
+
+**Success:** Legend matches dashboard badge colors; empty/error states handled; geocoding script documented.
 
 ---
 
@@ -424,7 +510,9 @@ Phase 1 (Foundation)
     ↓
 Phase 2 (Profiles, Districts, Taxonomy)
     ↓
-Phase 3 (Ingestion)
+Phase 3 (Ingestion) — m11–m15: Ingestion Console (100 districts, dashboard, preview, ingest, errors, edit, audit)
+    ↓
+Phase 11 (Map View) — 11.1 Schema & geocoding → 11.2 Map API → 11.3 Map component → 11.4 Polish; depends on Phase 3
     ↓
 Phase 4 (Discovery/Matching/Connections)
     ↓
@@ -450,13 +538,17 @@ Phase 10 (Frontend) — can start after Phase 2, iterate each phase
 | Poor data quality | Start with small, high-confidence attribute set; validate ingestion output |
 | Cold start empty results | Progressive broadening; seeded demo profiles; clear "close match" labeling |
 | Moderation content access | Enforce in API; no RLS initially; document policy clearly |
+| Geocoding accuracy/rate limits | Nominatim may misgeocode some districts; rate limit ~1 req/sec; use static lookup for critical misses if needed |
 
 ---
 
 ## References
 
 - PRD: `docs/prds/base.md`
+- District Data Ingestion PRD: `docs/prds/district-data-ingestion.md` — full spec for Ingestion Console (dashboard, preview, ingest, errors, edit, audit)
+- District Data Visualization PRD: `docs/prds/district-data-visualization.md` — map view with markers
 - Schema: `docs/db-schema.md`, `schema/*.sql`
+- Milestones: `docs/milestones/_index.md` — m11–m15 implement Phase 3 (Ingestion Console)
 - Research / decisions: `developer-log.md`
 - Plan prompt: `agent/prompts/plan.md`
 - Implement prompt: `agent/prompts/implement.md`

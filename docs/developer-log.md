@@ -318,6 +318,15 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** Login returns `token`; frontend stores in localStorage and sends `Authorization: Bearer <token>`; middleware validates JWT. Document for future maintainers; cookie migration remains an option.
 **Owner:** Developer
 
+### [2026-03-21] District map view: Nominatim geocoding, Leaflet, dedicated map-data API
+
+**Context:** District data visualization PRD specifies an interactive map view for the ingestion console; need to choose geocoding source, map library, and API approach.
+**Options considered:** (A) Nominatim vs Google Geocoding vs static lookup; (B) Leaflet vs Mapbox GL; (C) extend candidates endpoint vs new map-data endpoint.
+**Decision:** Use Nominatim for geocoding (free, rate-limited); Leaflet + react-leaflet with OSM tiles; new `GET /admin/ingestion/map-data` returning only map fields with no pagination.
+**Rationale:** Nominatim avoids API key; Leaflet is lightweight and PRD-recommended; dedicated endpoint keeps map payload minimal and avoids overloading candidates list contract.
+**Impact:** Add `latitude`, `longitude`, `geocoded_at` to district_candidates; geocoding script with 1 req/sec delay; map-data endpoint; Leaflet dependency in frontend. Implementation: Phase 11 (11.1–11.4) in `docs/implementation-plan.md`.
+**Owner:** Agent + developer
+
 ### [2026-03-20] Membership uses email verification + auto-approval
 
 **Context:** PRD requires membership approval/verification; options included manual admin approval, auto-approve, or email verification.

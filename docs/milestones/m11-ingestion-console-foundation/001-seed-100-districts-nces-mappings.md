@@ -1,6 +1,12 @@
-# Task 001: Seed 100 Districts with NCES Mappings
+# Task 001: Seed 100 Districts with NCES Mappings — DEPRECATED
 
-## Goal
+**Superseded by:** [001-nces-upload-and-parse.md](./001-nces-upload-and-parse.md)
+
+The spec now uses NCES CCD file upload instead of a pre-seeded 100-district list. This task is retained for reference only.
+
+---
+
+## Goal (historical)
 
 Create and load the curated 100-district seed list with NCES identifiers, mapped from the PRD §10.2 approved list (30 large/urban, 40 mid-size/suburban, 30 small/rural).
 

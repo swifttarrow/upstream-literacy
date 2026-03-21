@@ -2,9 +2,9 @@
 
 ## Overview
 
-Add an interactive map view to the ingestion console per [district-data-visualization PRD](../../prds/district-data-visualization.md) and [Implementation Plan Phase 11](../../implementation-plan.md). Moderators see district candidates as point markers (color-coded by ingestion status), filter by status/state/search, and click through to district preview.
+Add an interactive map view to the ingestion console per [district-data-visualization PRD](../../prds/district-data-visualization.md) and [Implementation Plan Phase 11](../../implementation-plan.md). Moderators see ingested districts as point markers (color-coded by completeness/status), filter by completeness/status/state/search, and click through to district detail.
 
-**End state:** "Table" | "Map" tab in ingestion console; markers colored by status; filters update markers; click → candidate preview; districts without coordinates excluded with count shown. Geocoding via `npm run geocode:district-candidates`.
+**End state:** "Table" | "Map" tab in ingestion console; markers colored by completeness/status; filters update markers; click → district detail; districts without coordinates excluded with count shown. Geocoding via `npm run geocode:district-candidates`.
 
 **Source:** [Implementation Plan Phase 11](../../implementation-plan.md), [District Data Visualization PRD](../../prds/district-data-visualization.md)
 
@@ -19,8 +19,8 @@ Add an interactive map view to the ingestion console per [district-data-visualiz
 |------|---------|
 | **Schema** | Add `latitude`, `longitude`, `geocoded_at` to `district_candidates` via `schema/12_district_candidates_geocode.sql` |
 | **Geocoding** | Script using Nominatim; 1 req/sec; idempotent; `npm run geocode:district-candidates` |
-| **API** | `GET /admin/ingestion/map-data` — filters: search, state, status; returns districts with coordinates; exclude NULL lat/lng |
-| **Map** | Leaflet + react-leaflet; `IngestionMap.tsx`; Table \| Map tabs; markers by status |
+| **API** | `GET /admin/ingestion/map-data` — filters: search, state, status/completeness; returns districts with coordinates; exclude NULL lat/lng |
+| **Map** | Leaflet + react-leaflet; `IngestionMap.tsx`; Table \| Map tabs; markers by completeness/status |
 | **Polish** | Legend, loading/empty/error states, geocoding docs |
 
 ## Success Criteria
@@ -29,11 +29,11 @@ Add an interactive map view to the ingestion console per [district-data-visualiz
 - [ ] Migration runs without error
 - [ ] Geocoding script processes candidates; idempotent
 - [ ] `GET /admin/ingestion/map-data` returns 200; filters work; < 500ms for 100 districts
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds
 
 ### Manual Verification
-- [ ] Map displays markers; colors match status (green/orange/gray/blue/yellow/red)
-- [ ] Zoom, pan, click marker → candidate preview
+- [ ] Map displays markers; colors match completeness/status (green/orange/gray/blue/yellow/red)
+- [ ] Zoom, pan, click marker → district detail
 - [ ] Filters update visible markers
 - [ ] Map loads in < 3s
 - [ ] Districts without coordinates excluded; count shown when any

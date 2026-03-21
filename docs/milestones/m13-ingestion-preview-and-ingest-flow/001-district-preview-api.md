@@ -15,7 +15,7 @@ Expose an API that returns raw source values, normalized app values, and missing
 ## Notes
 
 - PRD §10.3: raw source values, normalized app values, field-level missing indicators, source metadata
-- May aggregate from NCES fetch + district_attribute_definitions + existing district_effective_attribute_values if re-previewing ingested district
+- Returns source and normalized values; completeness score; used for district detail (view). Edit flow in m15.
 - PRD §16: suggested seed fields
 
 ## Verification

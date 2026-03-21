@@ -6,11 +6,11 @@ Add `latitude`, `longitude`, and `geocoded_at` columns to `district_candidates` 
 
 ## Deliverables
 
-- [ ] New migration file `schema/12_district_candidates_geocode.sql`
-- [ ] `ALTER TABLE district_candidates ADD COLUMN latitude numeric(9,6)` (nullable)
-- [ ] `ALTER TABLE district_candidates ADD COLUMN longitude numeric(9,6)` (nullable)
-- [ ] `ALTER TABLE district_candidates ADD COLUMN geocoded_at timestamptz` (nullable)
-- [ ] Migration runs after `11_ingestion_console.sql` (existing runner uses numeric order)
+- [x] New migration file `schema/12_district_candidates_geocode.sql`
+- [x] `ALTER TABLE district_candidates ADD COLUMN latitude numeric(9,6)` (nullable)
+- [x] `ALTER TABLE district_candidates ADD COLUMN longitude numeric(9,6)` (nullable)
+- [x] `ALTER TABLE district_candidates ADD COLUMN geocoded_at timestamptz` (nullable)
+- [x] Migration runs after `11_ingestion_console.sql` (existing runner uses numeric order)
 
 ## Notes
 

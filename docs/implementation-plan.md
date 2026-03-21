@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations. District data is managed via an internal [Ingestion Console](prds/district-data-ingestion.md) (moderator-facing UI for ingest, preview, edit, audit).
+Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations. District data is managed via an internal [Ingestion Console](prds/district-data-ingestion.md) (moderator-facing UI for NCES upload, auto-ingest, completeness, edit, audit).
 
 ## Current State Analysis
 
@@ -43,7 +43,7 @@ See `developer-log.md` for decision rationale.
 **Specification:** Full MVP as defined in PRD §12 and §8, including:
 
 1. Auth + profiles (district, role, bio, primary/secondary problems)
-2. District data ingestion (moderator console: 100-district seed, preview, ingest, progress, errors, post-ingestion edit, audit) — per [district-data-ingestion PRD](prds/district-data-ingestion.md); map view for geographic coverage — per [district-data-visualization PRD](prds/district-data-visualization.md)
+2. District data ingestion (moderator console: NCES upload UI, auto-ingest all districts, completeness scoring, browse/edit, audit) — per [district-data-ingestion PRD](prds/district-data-ingestion.md); map view for geographic coverage — per [district-data-visualization PRD](prds/district-data-visualization.md)
 3. Problem taxonomy (admin-managed, categorized)
 4. Discovery & matching (filter by problem, district, role, geography; ranked results; exact vs close match; match explanations)
 5. Connections (send/accept requests; gate for messaging)
@@ -145,40 +145,43 @@ Implement profile CRUD, district lookup, and problem taxonomy. Enables profile c
 
 ### Overview
 
-Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md): moderator-facing Ingestion Console with 100 real district candidates, preview-before-ingest, UI-triggered ingestion (single and batch), progress tracking, error capture, missing data flagging, post-ingestion editing, and audit logging. Backend: attribute definitions, ingestion jobs, admin overrides, provenance display. Implemented via milestones m11–m15.
+Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md): moderator-facing Ingestion Console with NCES CCD file upload, automatic ingestion of all districts, completeness scoring, district list with filters, post-ingestion editing, and audit logging. No manual per-district ingestion—moderators upload, system ingests all, moderators edit only when they want. Backend: attribute definitions, upload/ingestion jobs, admin overrides, provenance display. Implemented via milestones m11–m15.
 
 ### Changes Required
 
 | Area | Changes |
 |------|---------|
-| **District candidates** | Seed 100 real districts (NCES-backed); `district_candidates` table; status per candidate (not_ingested, ingested, failed, etc.) |
+| **NCES upload** | Upload UI for CCD CSV; parse and validate format; create ingestion job per upload |
+| **District candidates** | Populate `district_candidates` (or equivalent) from uploaded file; no pre-seeded list; status per record (ingested, failed, etc.) |
 | **Attribute definitions** | Seed `district_attribute_definitions` (type, enrollment, FRL, EL, grade bands); per db-schema.md MVP set |
-| **Ingestion** | Job model: parse source → normalize → insert `district_ingestion_events`; merge into `district_effective_attribute_values`; async (pg-boss) for batch |
-| **Ingestion Console API** | Dashboard summary; candidate list (filters: state, status, search); preview; trigger ingest; job progress; retry failed |
+| **Ingestion** | Job model: parse uploaded CSV → normalize each row → insert `district_ingestion_events`; merge into `district_effective_attribute_values`; async (pg-boss) for large uploads |
+| **Completeness scoring** | Compute per-district completeness (required vs recommended vs optional fields); display in list and detail |
+| **Ingestion Console API** | Dashboard summary; upload endpoint; district list (filters: state, completeness, search); job progress; retry failed |
 | **Admin overrides** | `PATCH /admin/ingestion/districts/:id`; insert/update `district_admin_overrides`; recompute effective values; revert to source |
-| **Errors & data quality** | Capture ingestion errors (type, message, retry_eligible); missing data flags; display in UI |
-| **Moderator UI** | Dashboard (summary cards, candidate table, filters); district preview screen; ingest trigger; job progress view; district edit screen |
-| **Audit** | Log: preview viewed, ingestion started/completed, district edited, override reverted |
-| **Display** | District endpoints surface `provenance`, `last_ingestion_event_id`, `last_override_id` |
+| **Errors & data quality** | Capture parse/ingestion errors (type, message, retry_eligible); completeness flags; display in UI |
+| **Moderator UI** | Upload area; dashboard (summary cards, district table with completeness, filters); district detail (view & edit); job progress view |
+| **Audit** | Log: file uploaded, ingestion started/completed, district edited, override reverted |
+| **Display** | District endpoints surface `provenance`, `completeness_score`, `last_ingestion_event_id`, `last_override_id` |
 | **Demo/seed** | Optional seed script for demo districts and users (`is_demo = true`) |
 
 ### Success Criteria
 
 #### Automated Verification
-- [x] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
-- [x] Admin override updates effective values correctly
-- [x] Source/timestamp visible in district API responses
-- [x] Moderator can trigger ingestion from API; job progresses; errors captured
-- [x] 100 district candidates seeded with NCES mappings
+- [ ] Upload parses CCD CSV and creates ingestion job
+- [ ] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
+- [ ] Completeness score computed per district
+- [ ] Admin override updates effective values correctly
+- [ ] Source/timestamp visible in district API responses
+- [ ] Moderator can upload file via API; job progresses; errors captured
 
 #### Manual Verification
-- [x] Moderator sees ingestion dashboard with candidate list, filters, summary
-- [x] Moderator can preview district before ingest, trigger ingest, view progress
-- [x] Districts show ingested attributes with provenance
-- [x] Moderator can edit ingested district; override visible; revert to source works
-- [x] Errors and missing data surfaced; retry available for eligible failures
-- [x] Audit trail queryable for ingestion actions
-- [x] Demo data available for cold-start testing
+- [ ] Moderator sees upload UI and dashboard with district list, completeness summary, filters
+- [ ] Moderator can upload NCES CCD file; all districts auto-ingested; progress visible
+- [ ] Districts show completeness scores and ingested attributes with provenance
+- [ ] Moderator can edit district; override visible; revert to source works
+- [ ] Errors and low-completeness districts surfaced; retry available for eligible failures
+- [ ] Audit trail queryable for upload and edit actions
+- [ ] Demo data available for cold-start testing
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -411,7 +414,7 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 | **Groups** | Create group, add/remove participants, group conversation view |
 | **Notifications** | Bell/indicator, list, mark read |
 | **Moderation** | Admin/moderator: report queue, actions |
-| **Ingestion Console** | Moderator: dashboard, candidate list, preview, ingest, progress, district edit (per district-data-ingestion PRD); map view with markers (per district-data-visualization PRD) |
+| **Ingestion Console** | Moderator: upload UI, dashboard, district list with completeness, district edit (per district-data-ingestion PRD); map view with markers (per district-data-visualization PRD) |
 | **Polish** | Loading states, error handling, accessibility, performance |
 
 ### Success Criteria
@@ -426,16 +429,16 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 - [x] Match explanations clear and useful
 - [x] Real-time messaging feels responsive
 - [x] Moderation workflow usable by moderator
-- [x] Ingestion console usable by moderator (dashboard, preview, ingest, edit, audit)
-- [ ] Map view usable by moderator (markers, filters, click-through to preview)
+- [ ] Ingestion console usable by moderator (upload, dashboard, district list, edit, audit)
+- [ ] Map view usable by moderator (markers, filters, click-through to district detail)
 
 ---
 
 ## Phase 11: District Data Visualization (Map View)
 
-Add an interactive map view to the ingestion console per [district-data-visualization PRD](prds/district-data-visualization.md). Moderators see district candidates as point markers (color-coded by ingestion status), filter by status/state/search, and click through to district preview. Extends the existing ingestion console.
+Add an interactive map view to the ingestion console per [district-data-visualization PRD](prds/district-data-visualization.md). Moderators see ingested districts as point markers (color-coded by completeness/status), filter by completeness/state/search, and click through to district detail. Extends the existing ingestion console.
 
-**End state:** Map with "Table" \| "Map" tab; markers colored by status; filters update markers; click → candidate preview. Districts without coordinates excluded; count shown. Geocoding via `npm run geocode:district-candidates`. A simple map with working markers beats a complex map with broken geocoding.
+**End state:** Map with "Table" \| "Map" tab; markers colored by completeness/status; filters update markers; click → district detail. Districts without coordinates excluded; count shown. Geocoding via `npm run geocode:district-candidates`. A simple map with working markers beats a complex map with broken geocoding.
 
 **Out of scope:** District boundary polygons; geocoding at ingestion time; real-time geocoding; clustering; public or mobile map UX.
 
@@ -445,7 +448,7 @@ Add an interactive map view to the ingestion console per [district-data-visualiz
 
 ### Phase 11.1: Schema & Geocoding Enrichment
 
-Add latitude, longitude, geocoded_at to district_candidates. Implement and run geocoding script using Nominatim.
+Add latitude, longitude, geocoded_at to district_candidates (or equivalent district table). Implement and run geocoding script using Nominatim.
 
 | Area | Changes |
 |------|---------|
@@ -454,7 +457,7 @@ Add latitude, longitude, geocoded_at to district_candidates. Implement and run g
 | **Package.json** | Add `"geocode:district-candidates"` script |
 | **Nominatim** | Use `https://nominatim.openstreetmap.org/search?q=...&format=json`; set User-Agent header per OSM policy |
 
-**Success:** Migration runs; script processes candidates; rows updated with lat/lng where geocode succeeds. Run 10 districts first, then full 100. Script idempotent.
+**Success:** Migration runs; script processes districts; rows updated with lat/lng where geocode succeeds. Script idempotent. Test with subset first, then full set.
 
 ---
 
@@ -469,7 +472,7 @@ Expose endpoint to return district candidates with coordinates for map rendering
 | **Validation** | Zod schema for query params |
 | **Routes** | Add in `backend/src/routes/ingestion.ts` |
 
-**Success:** Returns 200 with districts array; filters reduce result set; 401/403 for unauthenticated; < 500ms for 100 districts.
+**Success:** Returns 200 with districts array; filters reduce result set; 401/403 for unauthenticated; performant for typical district counts.
 
 ---
 
@@ -510,7 +513,7 @@ Phase 1 (Foundation)
     ↓
 Phase 2 (Profiles, Districts, Taxonomy)
     ↓
-Phase 3 (Ingestion) — m11–m15: Ingestion Console (100 districts, dashboard, preview, ingest, errors, edit, audit)
+Phase 3 (Ingestion) — m11–m15: Ingestion Console (NCES upload, auto-ingest, completeness, dashboard, edit, audit)
     ↓
 Phase 11 (Map View) — 11.1 Schema & geocoding → 11.2 Map API → 11.3 Map component → 11.4 Polish; depends on Phase 3
     ↓

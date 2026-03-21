@@ -6,13 +6,13 @@ Add `GET /admin/ingestion/map-data` endpoint that returns district candidates wi
 
 ## Deliverables
 
-- [ ] New route `GET /admin/ingestion/map-data` in `backend/src/routes/ingestion.ts`
-- [ ] Query params: `search`, `state`, `status` (same semantics as candidates)
-- [ ] Response: `{ districts: [{ id, name, state, status, latitude, longitude }] }`
-- [ ] Exclude rows where `latitude IS NULL` OR `longitude IS NULL`
-- [ ] No pagination; limit 500
-- [ ] Auth: `authenticate`, `requireModerator` (same as ingestion routes)
-- [ ] Validation: Zod schema for query params
+- [x] New route `GET /admin/ingestion/map-data` in `backend/src/routes/ingestion.ts`
+- [x] Query params: `search`, `state`, `status` (same semantics as candidates)
+- [x] Response: `{ districts: [{ id, name, state, status, latitude, longitude }] }`
+- [x] Exclude rows where `latitude IS NULL` OR `longitude IS NULL`
+- [x] No pagination; limit 500
+- [x] Auth: `authenticate`, `requireModerator` (same as ingestion routes)
+- [x] Validation: Zod schema for query params
 
 ## Notes
 

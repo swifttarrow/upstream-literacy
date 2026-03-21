@@ -38,9 +38,9 @@ m1 (Foundation)
   → m10 (Frontend) — can start after m2, iterate each phase
 
 m3 (Ingestion)
-  → m11 (Ingestion Console Foundation) — real NCES data, 100 districts
-    → m12 (Ingestion Dashboard & Candidates UI)
-      → m13 (Preview & Ingest Flow)
+  → m11 (Ingestion Console Foundation) — NCES upload, parse, auto-ingest
+    → m12 (Ingestion Dashboard & District List UI)
+      → m13 (Upload Flow & Completeness Scoring)
         → m14 (Errors & Data Quality)
           → m15 (Editing & Audit)
 

@@ -6,11 +6,11 @@ Add legend, improve loading/empty/error states, and document the geocoding scrip
 
 ## Deliverables
 
-- [ ] Legend: status → color mapping visible on map or sidebar (matches dashboard badge colors)
-- [ ] Empty state: "No districts with coordinates" or "Run geocoding script" when all candidates lack coordinates
-- [ ] Error handling: API failure shows user-friendly message; retry or link to docs
-- [ ] Loading state: skeleton or spinner until map and data ready
-- [ ] Documentation: README or developer doc describing how to run `npm run geocode:district-candidates` and when to re-run (e.g. new candidates added)
+- [x] Legend: status → color mapping visible on map or sidebar (matches dashboard badge colors)
+- [x] Empty state: "No districts with coordinates" or "Run geocoding script" when all candidates lack coordinates
+- [x] Error handling: API failure shows user-friendly message; retry or link to docs
+- [x] Loading state: skeleton or spinner until map and data ready
+- [x] Documentation: `docs/geocoding.md` describing how to run `npm run geocode:district-candidates` and when to re-run
 
 ## Notes
 

@@ -2,23 +2,23 @@
 
 ## Goal
 
-Implement filter bar (search, state, status) and CTA buttons (Ingest Selected, Retry Failed, View Warnings) per PRD §§10.1, 11.1.
+Implement filter bar (search, state, completeness) and CTA buttons (Upload New NCES Data, Retry Failed, View Low-Completeness) per PRD §§10.1, 11.1.
 
 ## Deliverables
 
 - [x] Search input: filter by district name (debounced)
 - [x] State dropdown filter
-- [x] Status filter (Not Ingested, Ingested, etc.)
-- [x] Ingest Selected button: enables when rows selected; triggers batch ingest (stub or wire to m13)
+- [x] Completeness filter (full, partial, minimal / incomplete)
+- [ ] Upload New NCES Data button: opens upload flow or file picker
 - [x] Retry Failed button: visible when failed records exist; navigates or triggers retry
-- [x] View Warnings button: filter or navigate to warning records
+- [x] View Low-Completeness button: filter or navigate to low-completeness records
 - [x] Filters persist in URL (query params) for shareable links
 
 ## Notes
 
-- PRD §10.1: search by district name, filter by state, filter by ingestion status, filter by warning/error
-- Ingest action may be placeholder until m13; Retry/View Warnings can filter list
+- PRD §10.1: search by district name, filter by state, filter by completeness level, filter by warning/error
+- Upload triggers m11/m13 upload flow; Retry/View Low-Completeness filter list
 
 ## Verification
 
-- Changing filters updates table; Ingest Selected disabled when no selection; Retry/View Warnings show when applicable
+- Changing filters updates table; Upload opens upload flow; Retry/View Low-Completeness show when applicable

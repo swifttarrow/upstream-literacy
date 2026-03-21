@@ -16,7 +16,7 @@ Implement the API for moderators to trigger single-district or batch ingestion, 
 ## Notes
 
 - PRD §10.4: single, batch, ingest-all; create job; prevent duplicate active
-- PRD §15.3: idempotency via NCES id, state+name
+- PRD §15.3: idempotency via NCES id, state+name. Upload triggers full file ingestion (m11 001).
 - May use pg-boss to enqueue; or sync for single-district, async for batch
 
 ## Verification

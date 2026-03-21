@@ -6,14 +6,14 @@ Implement a script that populates `latitude`, `longitude`, and `geocoded_at` for
 
 ## Deliverables
 
-- [ ] Script `backend/scripts/geocode-district-candidates.ts` (or .js)
-- [ ] Fetch candidates where `latitude IS NULL` (or `geocoded_at IS NULL`)
-- [ ] For each: call Nominatim `https://nominatim.openstreetmap.org/search?q={name}, {state}, USA&format=json`
-- [ ] Set User-Agent header per [OSM usage policy](https://operations.osmfoundation.org/policies/nominatim/)
-- [ ] 1 req/sec delay between requests
-- [ ] Update row with `latitude`, `longitude`, `geocoded_at` on success; log failures
-- [ ] Idempotent: rerun skips or safely updates
-- [ ] `package.json` script: `"geocode:district-candidates": "tsx backend/scripts/geocode-district-candidates.ts"` (or equivalent)
+- [x] Script `backend/scripts/geocode-district-candidates.ts` (or .js)
+- [x] Fetch candidates where `latitude IS NULL` (or `geocoded_at IS NULL`)
+- [x] For each: call Nominatim `https://nominatim.openstreetmap.org/search?q={name}, {state}, USA&format=json`
+- [x] Set User-Agent header per [OSM usage policy](https://operations.osmfoundation.org/policies/nominatim/)
+- [x] 1 req/sec delay between requests
+- [x] Update row with `latitude`, `longitude`, `geocoded_at` on success; log failures
+- [x] Idempotent: rerun skips or safely updates
+- [x] `package.json` script: `"geocode:district-candidates": "tsx scripts/geocode-district-candidates.ts"`
 
 ## Notes
 

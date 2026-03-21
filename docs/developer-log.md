@@ -419,3 +419,12 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** New PRD defines ingestion console UX, source assumptions, and phased rollout; implementation should reference `docs/prds/district-data-ingestion.md` when building real-data ingestion.
 **Owner:** Developer
 
+### [2026-03-21] Ingestion spec updated: NCES upload UI, auto-ingest, completeness scoring
+
+**Context:** Original spec required manual ingestion of a curated 100-district list. Moderators would preview each district, then trigger ingest (single, batch, or ingest-all). User requested a simpler workflow.
+**Options considered:** (A) Keep 100-district manual ingest vs (B) upload NCES CCD file and auto-ingest all districts.
+**Decision:** Replace 100-district seed with NCES CCD file upload UI. Flow: moderator uploads latest NCES CCD CSV → system parses and automatically ingests all districts → system scores each district's completeness → moderator browses and edits only when they want to correct or enrich. No manual per-district ingest.
+**Rationale:** Removes manual per-district ingestion; keeps data current via latest NCES upload; completeness scoring surfaces quality at a glance; editing remains for corrections. Moderators operate on full datasets, not a fixed 100.
+**Impact:** PRD, implementation plan, and milestones (m11–m16) updated. New: upload endpoint, CCD CSV parse, auto-ingest all rows, per-district completeness scoring. Removed: 100-district seed list, preview-before-ingest flow, Ingest Selected / batch ingest selection.
+**Owner:** Developer
+

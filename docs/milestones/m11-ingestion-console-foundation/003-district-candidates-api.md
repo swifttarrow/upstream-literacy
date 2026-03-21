@@ -14,7 +14,7 @@ Expose an API for moderators to list district candidates with status, filters, a
 
 ## Notes
 
-- PRD §10.2: each row shows district name, state, NCES id, ingestion status, missing data indicator
+- PRD §§10.2, 10.3: each row shows district name, state, NCES id, completeness score, missing data indicator
 - Integrate with district_candidates seed and districts table for ingested records
 
 ## Verification

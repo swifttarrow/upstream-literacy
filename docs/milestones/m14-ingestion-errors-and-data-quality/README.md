@@ -2,7 +2,7 @@
 
 ## Overview
 
-Capture and display ingestion errors, detect and flag missing data, and provide in-UI notifications for job lifecycle events per PRD §§10.6–10.8.
+Capture and display upload/ingestion errors, compute completeness scores, detect missing data, and provide in-UI notifications for job lifecycle events per PRD §§10.6–10.8.
 
 **Source:** [District Data Ingestion PRD](../../../prds/district-data-ingestion.md) §§10.6–10.8
 
@@ -16,7 +16,7 @@ Capture and display ingestion errors, detect and flag missing data, and provide 
 |------|---------|
 | **Error capture** | Persist error entries (district, error type, message, timestamp, job id, retry eligibility) |
 | **Error display** | UI to inspect errors, retry eligible failures |
-| **Missing data** | Field/record/job-level detection; warning states (Missing Optional, Missing Required, Derived Used, Source Incomplete) |
+| **Completeness & missing data** | Per-district completeness score; field/record/job-level detection; warning states (Missing Optional, Missing Required, Derived Used, Source Incomplete) |
 | **Notifications** | In-UI alerts when job starts, completes, completes with warnings, fails |
 | **Retry** | Retry failed records from same job |
 
@@ -30,7 +30,7 @@ Capture and display ingestion errors, detect and flag missing data, and provide 
 ### Manual Verification
 - [x] Moderator sees error details for failed districts
 - [x] Moderator can retry eligible failures
-- [x] Missing data warnings surfaced in preview and job summary
+- [x] Completeness scores and missing data warnings surfaced in district list, detail, and job summary
 - [x] Job completion/failure triggers visible notification
 
 ## Tasks

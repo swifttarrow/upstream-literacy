@@ -1,10 +1,10 @@
-# Milestone 12: Ingestion Dashboard and Candidate List UI
+# Milestone 12: Ingestion Dashboard and District List UI
 
 ## Overview
 
-Build the moderator-facing ingestion dashboard and district candidate list UI per PRD §§10.1, 10.2, 11.1.
+Build the moderator-facing ingestion dashboard with upload area, district list (with completeness scores), and filters per PRD §§10.1, 10.2, 10.3, 11.1.
 
-**Source:** [District Data Ingestion PRD](../../../prds/district-data-ingestion.md) §§10.1–10.2, 11.1
+**Source:** [District Data Ingestion PRD](../../../prds/district-data-ingestion.md) §§10.1–10.3, 11.1
 
 ## Dependencies
 
@@ -14,22 +14,23 @@ Build the moderator-facing ingestion dashboard and district candidate list UI pe
 
 | Area | Changes |
 |------|---------|
-| **Dashboard** | Summary cards (Not Ingested, Ingested, Warnings, Failed); recent jobs panel; filter bar |
-| **Candidate list** | Table with district name, state, NCES id, status, missing indicator; search, state filter, status filter |
-| **Navigation** | Link to district preview; CTA buttons (Ingest Selected, Retry Failed, View Warnings) |
-| **API integration** | Consume candidates API, jobs API; wire filters and search |
+| **Upload area** | Drag-and-drop or file picker for NCES CCD CSV; link to NCES download page |
+| **Dashboard** | Summary cards (Total, Fully Complete, Partial, Incomplete); recent upload/jobs panel; filter bar |
+| **District list** | Table with district name, state, NCES id, completeness score, missing indicator; search, state filter, completeness filter |
+| **Navigation** | Link to district detail; CTA buttons (Upload New NCES Data, Retry Failed, View Low-Completeness) |
+| **API integration** | Consume upload, district list, jobs API; wire filters and search |
 
 ## Success Criteria
 
 ### Automated Verification
 - [x] Dashboard loads without error for moderator
-- [x] Candidate list renders with correct columns
+- [ ] District list renders with correct columns including completeness
 - [x] Filters and search reduce result set as expected
 
 ### Manual Verification
-- [x] Moderator sees summary counts and recent jobs
-- [x] Moderator can search by district name, filter by state and status
-- [x] Moderator can navigate to district preview from list
+- [ ] Moderator sees upload area, summary counts, and recent jobs
+- [x] Moderator can search by district name, filter by state and completeness
+- [x] Moderator can navigate to district detail from list
 
 ## Tasks
 

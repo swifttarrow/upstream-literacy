@@ -2,14 +2,15 @@
 
 ## 1. Overview
 
-Build an internal moderator-facing data ingestion console that allows moderators to ingest, review, validate, and edit school district data sourced from NCES. The system should support an initial seed set of **100 real school districts** and provide a repeatable workflow for ingesting additional districts over time.
+Build an internal moderator-facing data ingestion console that allows moderators to upload NCES district data, automatically ingest all districts from the uploaded file, and edit district data when needed. The system provides a small upload UI; after upload, the system ingests all district records and scores each district's completeness. Moderators do not manually ingest individual districts—they only edit data when they want to correct or enrich it.
 
 The ingestion experience should be transparent and operationally safe:
-- moderators can preview district data before ingesting
-- moderators can trigger ingestion from the UI
-- moderators can monitor progress
+- moderators can upload the latest NCES CCD data (CSV) via a simple UI
+- the system automatically ingests all districts from the uploaded file
+- the system scores each district's data completeness
+- moderators can browse districts and view completeness scores
+- moderators can edit district data when they want to correct or enrich it
 - moderators can detect and resolve missing or invalid data
-- moderators can edit data after ingestion
 
 ---
 
@@ -28,22 +29,21 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 ## 3. Goals
 
-- Allow moderators to ingest district data from NCES-backed records through a UI
-- Support an initial ingestion set of **100 real school districts**
-- Allow moderators to preview district data before ingesting
-- Provide clear ingestion progress and status
-- Surface errors and missing data during ingestion
-- Allow moderators to edit district data after ingestion
+- Allow moderators to upload NCES CCD district data (CSV) through a simple UI
+- Automatically ingest all districts from the uploaded file
+- Score each district's data completeness (required vs optional fields)
+- Allow moderators to browse ingested districts and view completeness scores
+- Allow moderators to edit district data when they want to correct or enrich it
+- Surface errors and missing data during upload/ingestion
 - Create an auditable workflow for district data operations
 
 ---
 
 ## 4. Non-Goals (MVP)
 
-- Fully automated ingestion of all U.S. school districts
-- Real-time sync with NCES
+- Real-time sync with NCES (upload is manual/on-demand)
 - Public user-facing editing of district records
-- Bulk ingestion from arbitrary third-party CSVs
+- Bulk ingestion from arbitrary third-party CSVs (NCES CCD format only)
 - AI-assisted data cleansing
 - Complex merge/deduplication across multiple external sources
 
@@ -62,46 +62,46 @@ An internal ingestion UI is needed so moderators can manage district data with c
 ## 6. Key User Stories
 
 ### Moderator
-- As a moderator, I want to see a list of candidate school districts so I can choose what to ingest.
-- As a moderator, I want to preview district data before ingestion so I can verify quality.
-- As a moderator, I want to trigger ingestion from the UI so I do not need engineering support.
-- As a moderator, I want to see progress while ingestion is running so I know what is happening.
-- As a moderator, I want to see errors and missing fields so I can fix or follow up on bad data.
-- As a moderator, I want to edit ingested district data so I can correct issues after import.
-- As a moderator, I want an audit trail of ingestion actions so changes are accountable.
+- As a moderator, I want to upload the latest NCES CCD data file so I can keep district data current.
+- As a moderator, I want the system to automatically ingest all districts from my upload so I do not need to select each one.
+- As a moderator, I want to see each district's completeness score so I know which records need attention.
+- As a moderator, I want to browse ingested districts and filter by completeness, state, or search so I can find specific records.
+- As a moderator, I want to edit district data when I need to correct or enrich it.
+- As a moderator, I want to see errors and missing fields from the upload/ingestion so I can fix or follow up on bad data.
+- As a moderator, I want an audit trail of upload and edit actions so changes are accountable.
 
 ### Admin
-- As an admin, I want to configure ingestion behavior and review data quality outcomes at scale.
+- As an admin, I want to review data quality and completeness outcomes at scale.
 
 ---
 
 ## 7. Scope
 
 ### In Scope
-- Internal moderator UI for district ingestion
-- Initial 100 real district seed records based on the approved NCES-backed starter set
-- District preview before ingestion
-- Ingest action from the UI
-- Progress tracking
-- Error reporting
-- Missing data flagging
-- Post-ingestion editing
+- Internal moderator UI for district data management
+- NCES CCD file upload (CSV format supported by NCES)
+- Automatic ingestion of all districts from uploaded file
+- Completeness scoring for each district (required vs optional fields)
+- District list/dashboard with filters (search, state, completeness)
+- Post-ingestion editing (moderators edit only when they want)
+- Error reporting for upload/parse/ingestion failures
+- Missing data flagging and completeness indicators
 - Audit logging
 
 ### Out of Scope
 - User-facing district editing
-- Automated recurring NCES sync
-- Large-scale bulk import management for thousands of districts
+- Automated recurring NCES sync (upload is manual/on-demand)
+- Bulk ingestion from arbitrary third-party CSV formats
 - External data-source switching in MVP
 
 ---
 
 ## 8. Source Data Assumptions
 
-The ingestion workflow will use **NCES-backed district records** as the source of truth for the MVP seed set.
+The ingestion workflow will use **NCES Common Core of Data (CCD)** district files as the source of truth. Moderators upload the latest CCD CSV (or equivalent format) via the UI.
 
-### Initial 100-district seed set
-The system should support an initial preloaded list of 100 real districts, based on the previously curated district list. These districts should be mapped to NCES source records before ingestion into the app database.
+### NCES CCD file format
+NCES provides CCD district data in CSV format. The system shall accept the standard CCD district file structure (directory, universe, or similar). The upload UI will guide moderators to download the appropriate file from nces.ed.gov/ccd and upload it.
 
 ### Example data fields expected from source or normalization layer
 - District name
@@ -139,253 +139,113 @@ If some fields are not available directly from NCES, the system may store them a
 
 ## 10. Functional Requirements
 
-## 10.1 Ingestion Dashboard
+## 10.1 NCES Data Upload UI
+
+The system shall provide a small upload UI for NCES CCD district data.
+
+The upload UI shall:
+- accept CSV files in NCES CCD district format
+- validate file format and structure before processing
+- show upload progress and file size
+- link to or describe where to download the latest CCD data from nces.ed.gov
+
+When a valid file is uploaded, the system shall:
+- parse the CSV
+- automatically ingest all district records
+- score completeness for each district
+- create an ingestion job record for the upload
+- surface parse/validation errors if the file format is unexpected
+
+---
+
+## 10.2 Ingestion Dashboard
 
 The system shall provide an internal moderator-facing ingestion dashboard.
 
 The dashboard shall show:
-- total candidate districts available in seed list
-- number not yet ingested
-- number successfully ingested
-- number with warnings
-- number with errors
-- most recent ingestion jobs
-- quick access to review missing/flagged records
+- upload area or link to upload new NCES data
+- total districts ingested (from most recent upload)
+- completeness summary (e.g., fully complete, partial, incomplete counts)
+- most recent upload/ingestion jobs
+- quick access to districts with low completeness or errors
 
-The dashboard should support:
+The dashboard shall support:
 - search by district name
 - filter by state
-- filter by ingestion status
+- filter by completeness level
 - filter by warning/error state
 
 ---
 
-## 10.2 District Candidate List
+## 10.3 District List
 
-The system shall display the initial **100 real district candidates** as ingestible records.
+The system shall display ingested districts with completeness scores.
 
 Each row should show:
 - district name
 - state
 - NCES identifier
-- current ingestion status
-- missing data indicator
-- last source refresh timestamp if available
-
-Possible statuses:
-- Not Ingested
-- Ready to Ingest
-- In Progress
-- Ingested
-- Ingested with Warnings
-- Failed
+- completeness score or tier (e.g., full, partial, minimal)
+- missing data indicator (which key fields are absent)
+- last source refresh timestamp (from upload)
 
 The moderator shall be able to:
-- click into a district record
-- preview source data
-- ingest one district
-- select multiple districts for batch ingestion
-
-### 🏙️ Large / Urban Districts (30)
-
-1. New York City Department of Education (NY)
-2. Los Angeles Unified School District (CA)
-3. Chicago Public Schools (IL)
-4. Miami-Dade County Public Schools (FL)
-5. Dallas Independent School District (TX)
-6. Houston Independent School District (TX)
-7. Clark County School District (NV)
-8. Broward County Public Schools (FL)
-9. Hillsborough County Public Schools (FL)
-10. Orange County Public Schools (FL)
-11. San Diego Unified School District (CA)
-12. School District of Philadelphia (PA)
-13. Fairfax County Public Schools (VA)
-14. Montgomery County Public Schools (MD)
-15. Gwinnett County Public Schools (GA)
-16. Charlotte-Mecklenburg Schools (NC)
-17. Cobb County School District (GA)
-18. Wake County Public School System (NC)
-19. Prince George’s County Public Schools (MD)
-20. Duval County Public Schools (FL)
-21. Shelby County Schools (TN)
-22. Metro Nashville Public Schools (TN)
-23. Denver Public Schools (CO)
-24. Boston Public Schools (MA)
-25. Seattle Public Schools (WA)
-26. Detroit Public Schools Community District (MI)
-27. Baltimore City Public Schools (MD)
-28. Milwaukee Public Schools (WI)
-29. Albuquerque Public Schools (NM)
-30. Jefferson County Public Schools (KY)
+- click into a district record to view details and edit
+- filter and search to find districts needing attention
 
 ---
 
-### 🏘️ Mid-size / Suburban Districts (40)
+## 10.4 District Detail (View & Edit)
 
-31. Plano Independent School District (TX)
-32. Frisco Independent School District (TX)
-33. Round Rock Independent School District (TX)
-34. Northside Independent School District (TX)
-35. Katy Independent School District (TX)
-36. Irvine Unified School District (CA)
-37. Elk Grove Unified School District (CA)
-38. Fresno Unified School District (CA)
-39. Long Beach Unified School District (CA)
-40. Mesa Public Schools (AZ)
-41. Chandler Unified School District (AZ)
-42. Scottsdale Unified School District (AZ)
-43. Cherry Creek School District (CO)
-44. Douglas County School District (CO)
-45. Adams 12 Five Star Schools (CO)
-46. Blue Valley School District (KS)
-47. Olathe Public Schools (KS)
-48. Shawnee Mission School District (KS)
-49. Naperville Community Unit School District 203 (IL)
-50. Indian Prairie School District 204 (IL)
-51. Community High School District 128 (IL)
-52. Loudoun County Public Schools (VA)
-53. Arlington Public Schools (VA)
-54. Howard County Public School System (MD)
-55. Anne Arundel County Public Schools (MD)
-56. Prince William County Public Schools (VA)
-57. Forsyth County Schools (GA)
-58. Fulton County Schools (GA)
-59. DeKalb County School District (GA)
-60. Cabarrus County Schools (NC)
-61. Union County Public Schools (NC)
-62. Williamson County Schools (TN)
-63. Knox County Schools (TN)
-64. Hamilton County Schools (TN)
-65. Beaverton School District (OR)
-66. Hillsboro School District (OR)
-67. Washoe County School District (NV)
-68. Davis School District (UT)
-69. Jordan School District (UT)
-70. Granite School District (UT)
+The system shall provide a district detail screen for viewing and editing.
 
----
-
-### 🌾 Small / Rural Districts (30)
-
-71. Bozeman Public Schools (MT)
-72. Missoula County Public Schools (MT)
-73. Helena Public Schools (MT)
-74. Laramie County School District 1 (WY)
-75. Sheridan County School District 2 (WY)
-76. Teton County School District #1 (WY)
-77. Rapid City Area Schools (SD)
-78. Sioux Falls School District (SD)
-79. Bismarck Public Schools (ND)
-80. Fargo Public Schools (ND)
-81. Moorhead Area Public Schools (MN)
-82. Duluth Public Schools (MN)
-83. Mankato Area Public Schools (MN)
-84. Ames Community School District (IA)
-85. Iowa City Community School District (IA)
-86. Cedar Falls Community Schools (IA)
-87. Lawrence Public Schools (KS)
-88. Manhattan-Ogden USD 383 (KS)
-89. Columbia Public Schools (MO)
-90. Springfield Public Schools (MO)
-91. Fayetteville Public Schools (AR)
-92. Bentonville School District (AR)
-93. Stillwater Public Schools (OK)
-94. Edmond Public Schools (OK)
-95. Norman Public Schools (OK)
-96. Flagstaff Unified School District (AZ)
-97. Santa Fe Public Schools (NM)
-98. Durango School District 9-R (CO)
-99. Aspen School District (CO)
-100. Steamboat Springs School District (CO)
-
----
-
-## 10.3 District Preview
-
-The system shall provide a district preview screen before ingestion.
-
-The preview shall show:
-- raw source values
+The detail screen shall show:
+- raw source values (read-only)
 - normalized app values
 - field-level missing value indicators
+- completeness score
 - source metadata
-- any transformation notes
-
-The preview should clearly distinguish:
-- source-provided values
-- system-normalized values
-- empty/missing values
-- manually overridden values if any exist
-
-Example preview sections:
-- Identity
-- Demographics / district context
-- Matching-ready normalized fields
-- Data quality warnings
-- Source metadata
 
 The moderator shall be able to:
-- confirm ingestion
-- cancel
-- optionally edit allowed fields before final ingest if pre-ingestion editing is enabled
+- edit allowed fields (normalized values, overrides)
+- revert overrides to source-backed values
+- save changes with validation
 
 ---
 
-## 10.4 Ingest Action
+## 10.5 Upload & Ingestion Progress
 
-The system shall allow moderators to initiate ingestion from the UI.
+The system shall display progress during upload and automatic ingestion.
 
-The system shall support:
-- single-district ingestion
-- batch ingestion of selected districts
-- ingest-all for the initial seed set, gated by confirmation
-
-When ingestion starts, the system shall:
-- create an ingestion job record
-- assign job status
-- begin processing selected records
-- prevent duplicate active ingestion for the same district
-
-The system should require confirmation before:
-- batch ingestion
-- ingest-all
-- re-ingesting an already ingested district
-
----
-
-## 10.5 Ingestion Progress
-
-The system shall display ingestion progress during active ingestion.
-
-For each ingestion job, the UI shall show:
-- total records selected
+For each upload/ingestion job, the UI shall show:
+- total records in file
 - records completed
 - records remaining
 - records succeeded
 - records succeeded with warnings
 - records failed
-- current active record
+- current active record (if processing)
 - started at timestamp
 - elapsed time
 
 The UI should provide:
 - progress bar
-- per-record status updates
+- per-record status updates (for large uploads)
 - live or near-live refresh
 - final job summary
 
 The system may support:
-- background processing for long-running batch jobs
+- background processing for large uploads
 - retry failed records from the same job
 
 ---
 
 ## 10.6 Error Capture
 
-The system shall capture and display ingestion errors.
+The system shall capture and display upload and ingestion errors.
 
 Error types may include:
+- file parse failure (invalid CSV format)
 - source record not found
 - NCES identifier mismatch
 - validation failure
@@ -395,31 +255,38 @@ Error types may include:
 - database write failure
 
 Each error entry shall include:
-- district name
+- district name (if applicable)
 - district identifier
 - error type
 - human-readable error message
 - timestamp
 - job id
-- retry eligibility
+- retry eligibility (where applicable)
 
 The moderator shall be able to:
 - inspect error details
 - retry eligible failures
-- manually correct and re-run ingestion
+- manually correct via district edit and re-upload if needed
 
 ---
 
-## 10.7 Missing Data Detection
+## 10.7 Completeness Scoring
 
-The system shall detect and flag missing or incomplete data required for district matching or display.
+The system shall automatically score each district's data completeness after ingestion.
+
+The completeness score shall reflect:
+- required fields present (district name, state, source identifier, matching anchors)
+- recommended fields present (district type, enrollment bucket, FRL bucket, EL bucket, grade bands)
+- optional fields present
+
+Completeness tiers (e.g., full, partial, minimal) shall be computed per district and displayed in the district list and detail screens.
 
 The system shall identify missing data at:
 - field level
 - record level
 - job summary level
 
-Examples of fields to flag if missing:
+Examples of fields to factor into completeness:
 - district type / locale
 - enrollment or enrollment bucket
 - FRL bucket
@@ -427,34 +294,30 @@ Examples of fields to flag if missing:
 - grade bands
 - source timestamp
 
-The UI shall notify the moderator when:
-- a district can be ingested but has incomplete data
-- a district cannot be ingested because required fields are missing
-- a completed ingestion includes warnings
+The UI shall surface:
+- completeness score per district
+- which key fields are missing for low-scoring districts
+- summary counts (e.g., fully complete, partial, minimal) on the dashboard
 
-Possible warning states:
+Possible completeness/warning states:
 - Missing Optional Data
 - Missing Required Matching Data
 - Derived Value Used
 - Source Metadata Incomplete
-
-The system should allow configurable rules for:
-- hard-stop missing fields
-- warning-only missing fields
 
 ---
 
 ## 10.8 Notifications and Alerts
 
 The system shall notify the moderator in the UI when:
-- an ingestion job starts
-- an ingestion job completes
-- an ingestion job completes with warnings
-- an ingestion job fails
-- missing required data is detected
+- an upload/ingestion job starts
+- an upload/ingestion job completes
+- an upload/ingestion job completes with warnings
+- an upload/ingestion job fails
+- missing required data or low completeness is detected
 
 The system may later support:
-- email notifications for long-running batch jobs
+- email notifications for long-running upload jobs
 - notification center integration
 
 ---
@@ -493,13 +356,13 @@ The system should support:
 
 ## 10.10 Audit Logging
 
-The system shall maintain an audit log for district ingestion operations.
+The system shall maintain an audit log for district data operations.
 
 Audited actions shall include:
-- preview viewed
-- ingestion started
-- ingestion completed
-- ingestion retried
+- file uploaded
+- upload/ingestion started
+- upload/ingestion completed
+- upload/ingestion retried
 - district edited
 - override applied
 - override reverted
@@ -514,20 +377,20 @@ Audit records should include:
 
 ---
 
-## 10.11 Re-Ingestion / Refresh
+## 10.11 Re-Upload / Refresh
 
-The system should allow moderators to re-run ingestion for an already ingested district.
+The system should allow moderators to upload a new NCES file to refresh district data.
 
 Possible use cases:
-- source data changed
-- previous record had missing fields
+- NCES released updated CCD data
+- previous upload had errors or missing fields
 - normalization rules were updated
 
 The system shall:
-- show current ingested version
-- show incoming preview version
-- warn before overwrite or merge
-- preserve historical ingestion records
+- accept a new upload at any time
+- merge or overwrite per configurable policy (e.g., overwrite by NCES id)
+- warn before overwriting districts that have moderator overrides
+- preserve historical ingestion/upload records
 
 ---
 
@@ -537,49 +400,51 @@ The system shall:
 Primary screen for moderator operations.
 
 ### Key UI components
+- upload area (drag-and-drop or file picker for NCES CCD CSV)
+- link to NCES CCD download page
 - top summary cards
-  - Not Ingested
-  - Ingested
-  - Warnings
-  - Failed
-- district table
-- filter bar
-- recent jobs panel
+  - Total Districts
+  - Fully Complete
+  - Partial
+  - Incomplete / Warnings
+- district table (with completeness scores)
+- filter bar (search, state, completeness)
+- recent upload/jobs panel
 - CTA buttons:
-  - Ingest Selected
-  - Retry Failed
-  - View Warnings
+  - Upload New NCES Data
+  - Retry Failed (if applicable)
+  - View Low-Completeness Districts
 
 ---
 
-## 11.2 District Detail / Preview Screen
+## 11.2 District Detail Screen (View & Edit)
 
 ### Sections
 - header
   - district name
   - state
   - NCES id
-  - status
-- source data card
-- normalized data card
-- missing fields / warnings card
+  - completeness score
+- source data card (read-only)
+- normalized data card (editable)
+- missing fields / completeness breakdown
 - source metadata card
 - action bar
-  - Ingest
-  - Edit Before Ingest (optional)
-  - Cancel
+  - Edit
+  - Save
+  - Revert Override
 
 ---
 
-## 11.3 Ingestion Job Detail Screen
+## 11.3 Upload / Ingestion Job Detail Screen
 
 ### Sections
-- job summary
+- job summary (file name, uploaded at)
 - progress bar
-- live record list
+- live record list (for large uploads)
 - succeeded / warning / failed tabs
 - retry failed button
-- completion summary
+- completion summary with completeness breakdown
 
 ---
 
@@ -626,17 +491,16 @@ The system should classify fields into:
 
 ### Moderator
 - view dashboard
-- preview district data
-- trigger ingestion
-- edit ingested district data
-- retry failed ingestion
+- upload NCES CCD data
+- view district list and completeness scores
+- edit district data
+- retry failed upload/ingestion
 - view warnings/errors
 
 ### Admin
 - all moderator permissions
 - configure validation rules
-- manage source mappings
-- manage ingest-all operations
+- manage completeness scoring rules
 - view all audit logs
 
 ---
@@ -644,10 +508,10 @@ The system should classify fields into:
 ## 14. Non-Functional Requirements
 
 ## 14.1 Performance
-- District preview should load quickly enough for operational use
-- Single-district ingestion should complete within an acceptable interactive window
-- Batch ingestion should run asynchronously without blocking the UI
-- Progress updates should refresh frequently enough to reassure moderators
+- Upload should accept files and begin processing promptly
+- Parsing and ingestion should run asynchronously for large files (thousands of districts) without blocking the UI
+- Progress updates should refresh frequently enough to reassure moderators during upload
+- District list and detail should load quickly for browsing and editing
 
 ## 14.2 Security
 - Ingestion console shall require authenticated internal access
@@ -656,10 +520,10 @@ The system should classify fields into:
 - Source-backed data and overrides shall be clearly separated
 
 ## 14.3 Usability
-- Moderators should be able to ingest a district with minimal training
-- Missing values and warnings should be immediately understandable
+- Moderators should be able to upload NCES data with minimal training
+- Completeness scores and missing values should be immediately understandable
 - Errors should be actionable and not overly technical
-- Progress states should be visible and clear
+- Upload and ingestion progress should be visible and clear
 
 ## 14.4 Maintainability
 - Ingestion logic should be modular and reusable
@@ -668,8 +532,8 @@ The system should classify fields into:
 - Data validation should be testable
 
 ## 14.5 Scalability
-- System should support growth beyond the initial 100 districts
-- Batch ingestion should remain stable as ingestion volume grows
+- System should support uploads with thousands of districts (full U.S. CCD)
+- Upload/ingestion should remain stable as volume grows (async processing, progress tracking)
 - The design should support additional sources later, even if NCES is the only MVP source
 
 ---
@@ -712,9 +576,9 @@ The system should preserve:
 
 ---
 
-## 16. Suggested Initial Seed Fields
+## 16. Suggested District Fields (Post-Ingestion)
 
-For each of the 100 districts, the MVP ingestion flow should support:
+For each ingested district, the system should support:
 
 - `district_name`
 - `state`
@@ -742,13 +606,12 @@ For each of the 100 districts, the MVP ingestion flow should support:
 
 ## 17. Success Metrics
 
-- % of initial 100 districts successfully ingested
-- % of ingested districts with warnings
-- % of failed ingestions retried successfully
-- average time to ingest one district
-- average time to ingest full seed batch
+- % of uploaded districts successfully ingested
+- % of ingested districts with full vs partial vs minimal completeness
+- % of failed records retried successfully
+- average time to process upload (by file size)
 - number of moderator edits per ingested district
-- reduction in missing critical fields over time
+- reduction in low-completeness districts over time
 
 ---
 
@@ -764,23 +627,23 @@ For each of the 100 districts, the MVP ingestion flow should support:
 
 ## 19. Open Questions
 
-- Which fields are hard-required vs warning-only for MVP ingestion?
-- Should moderators be allowed to edit before ingest, or only after ingest?
-- Should ingest-all be moderator-visible or admin-only?
-- Should re-ingestion merge with overrides or preserve overrides automatically?
+- Which CCD file variant (directory vs universe) and columns to support for MVP?
+- How to handle duplicate NCES IDs across uploads (overwrite, merge, skip)?
+- Should re-upload preserve moderator overrides automatically or prompt?
 - Will the system store raw NCES records verbatim, or only transformed snapshots?
+- Completeness tier thresholds (e.g., what counts as full vs partial vs minimal)?
 
 ---
 
 ## 20. Recommended MVP Decisions
 
-- Use the curated **100 real district seed list** as the initial ingestion pool
-- Back the seed list with mapped NCES identifiers before exposing the UI
+- Use **NCES CCD CSV upload** as the district data input; no pre-seeded district list
+- Accept standard CCD district file format; validate and parse on upload
 - Allow:
-  - single ingest
-  - batch ingest
-  - preview before ingest
-  - edit after ingest
-- Treat missing matching-critical fields as warnings first unless they block core product functionality
+  - upload NCES file → automatic ingestion of all districts
+  - browse districts with completeness scores
+  - edit districts when moderator wants to correct or enrich
+- Compute completeness score automatically per district (required vs recommended vs optional fields)
+- Treat missing matching-critical fields as completeness downgrade; surface in UI for editing
 - Preserve source values separately from moderator overrides
-- Make batch jobs asynchronous with visible progress and retry support
+- Make upload/ingestion asynchronous with visible progress and retry support

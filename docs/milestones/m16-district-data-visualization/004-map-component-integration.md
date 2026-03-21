@@ -6,16 +6,16 @@ Add Leaflet + react-leaflet, create the map component, and integrate it into the
 
 ## Deliverables
 
-- [ ] Add dependencies: `leaflet`, `react-leaflet`, `@types/leaflet`
-- [ ] Create `frontend/src/components/IngestionMap.tsx` (client component, `'use client'`)
-- [ ] Fetch `GET /admin/ingestion/map-data` with filter params
-- [ ] Render MapContainer, TileLayer (OpenStreetMap), Markers from API data
-- [ ] Color markers by status: ingested=green, ingested_with_warnings=orange, not_ingested=gray, ready_to_ingest=blue, in_progress=yellow, failed=red
-- [ ] Popup on marker click: district name, state; link to `/admin/ingestion/candidates/[id]`
-- [ ] Update `frontend/src/app/admin/ingestion/page.tsx`: add "Table" | "Map" tabs
-- [ ] Reuse filter bar state (search, state, status) for map when Map tab active
-- [ ] Map min-height 400px; loading state until data and tiles load
-- [ ] Show "X districts missing coordinates" when any candidates excluded due to NULL lat/lng
+- [x] Add dependencies: `leaflet`, `react-leaflet@4`, `@types/leaflet`
+- [x] Create `frontend/src/components/IngestionMap.tsx` (client component, `'use client'`)
+- [x] Fetch `GET /admin/ingestion/map-data` with filter params
+- [x] Render MapContainer, TileLayer (OpenStreetMap), Markers from API data
+- [x] Color markers by status: ingested=green, ingested_with_warnings=orange, not_ingested=gray, ready_to_ingest=blue, in_progress=yellow, failed=red
+- [x] Popup on marker click: district name, state; link to `/admin/ingestion/candidates/[id]`
+- [x] Update `frontend/src/app/admin/ingestion/page.tsx`: add "Table" | "Map" tabs
+- [x] Reuse filter bar state (search, state, status) for map when Map tab active
+- [x] Map min-height 400px; loading state until data and tiles load
+- [x] Show "X districts missing coordinates" when any candidates excluded due to NULL lat/lng
 
 ## Notes
 

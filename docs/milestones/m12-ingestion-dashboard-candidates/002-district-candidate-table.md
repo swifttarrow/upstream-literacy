@@ -6,7 +6,7 @@ Display the district candidate list as a table with required columns and row-lev
 
 ## Deliverables
 
-- [x] Table columns: district name, state, NCES identifier, ingestion status, missing data indicator, last source refresh
+- [x] Table columns: district name, state, NCES identifier, completeness score, missing data indicator, last source refresh
 - [x] Status badges: Not Ingested, Ready to Ingest, In Progress, Ingested, Ingested with Warnings, Failed
 - [x] Row click or action to open district preview
 - [x] Pagination
@@ -14,7 +14,7 @@ Display the district candidate list as a table with required columns and row-lev
 
 ## Notes
 
-- PRD §10.2: each row shows name, state, NCES id, status, missing indicator
+- PRD §§10.2, 10.3: each row shows name, state, NCES id, completeness score, missing indicator
 - Data from GET /admin/ingestion/candidates
 - Use existing table/card patterns from discover or admin reports
 

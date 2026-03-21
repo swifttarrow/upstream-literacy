@@ -284,3 +284,157 @@ describe('Connections API', () => {
     expect(bobData.connections.some((c) => c.other_user_id === aliceId)).toBe(true);
   });
 });
+
+describe('Ingestion API', () => {
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  let moderatorToken: string;
+  let moderatorId: string;
+  let memberToken: string;
+  let candidateId: string;
+
+  beforeAll(async () => {
+    app = await buildServer();
+
+    // Create moderator user
+    const modEmail = `mod-${Date.now()}@example.com`;
+    const regRes = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: modEmail,
+        password: 'password123',
+        full_name: 'Moderator User',
+      },
+    });
+    expect(regRes.statusCode).toBe(201);
+    moderatorId = (regRes.json() as { user: { id: string } }).user.id;
+
+    await pool.query(
+      "UPDATE users SET platform_role = 'moderator' WHERE id = $1",
+      [moderatorId]
+    );
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: modEmail, password: 'password123' },
+    });
+    expect(loginRes.statusCode).toBe(200);
+    moderatorToken = (loginRes.json() as { token: string }).token;
+
+    // Create regular member (no moderator access)
+    const memberEmail = `member-${Date.now()}@example.com`;
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: memberEmail,
+        password: 'password123',
+        full_name: 'Member User',
+      },
+    });
+    const memberLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: memberEmail, password: 'password123' },
+    });
+    memberToken = (memberLogin.json() as { token: string }).token;
+
+    // Get a candidate id (requires district_candidates seeded)
+    const candRes = await pool.query(
+      'SELECT id FROM district_candidates LIMIT 1'
+    );
+    candidateId = candRes.rows[0]?.id ?? '';
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /admin/ingestion/candidates returns 403 for non-moderator', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/candidates',
+      headers: { authorization: `Bearer ${memberToken}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('GET /admin/ingestion/candidates returns data for moderator', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/candidates?page=1&limit=5',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { candidates: unknown[]; pagination: { total: number } };
+    expect(Array.isArray(body.candidates)).toBe(true);
+    expect(body.pagination).toBeDefined();
+  });
+
+  it('GET /admin/ingestion/summary returns counts for moderator', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/summary',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { summary: Record<string, string>; recent_jobs: unknown[] };
+    expect(body.summary).toBeDefined();
+    expect(body.summary.total).toBeDefined();
+    expect(Array.isArray(body.recent_jobs)).toBe(true);
+  });
+
+  it('GET /admin/ingestion/candidates/:id/preview returns preview for moderator', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/admin/ingestion/candidates/${candidateId}/preview`,
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { candidate: Record<string, unknown>; quality: Record<string, unknown>; normalized: Record<string, unknown> };
+    expect(body.candidate).toBeDefined();
+    expect(body.quality).toBeDefined();
+    expect(body.normalized).toBeDefined();
+  });
+
+  it('POST /admin/ingestion/trigger creates job and returns 201', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/ingestion/trigger',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+      payload: { district_ids: [candidateId] },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json() as { job_id: string; total_count: number };
+    expect(body.job_id).toBeDefined();
+    expect(body.total_count).toBe(1);
+  });
+
+  it('GET /admin/ingestion/jobs/:jobId returns job for moderator', async ({ skip }) => {
+    if (!candidateId) skip();
+    const triggerRes = await app.inject({
+      method: 'POST',
+      url: '/api/admin/ingestion/trigger',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+      payload: { district_ids: [candidateId] },
+    });
+    if (triggerRes.statusCode !== 201) skip();
+    const { job_id } = triggerRes.json() as { job_id: string };
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/admin/ingestion/jobs/${job_id}`,
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { job: Record<string, unknown>; records: unknown[] };
+    expect(body.job).toBeDefined();
+    expect(body.job.id).toBe(job_id);
+    expect(Array.isArray(body.records)).toBe(true);
+  });
+});

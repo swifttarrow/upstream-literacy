@@ -6,14 +6,14 @@ Build the district preview UI with source vs normalized cards, missing/warning i
 
 ## Deliverables
 
-- [ ] Route: `/admin/ingestion/candidates/:id` or `/admin/ingestion/preview/:id`
-- [ ] Header: district name, state, NCES id, status
-- [ ] Source data card (read-only)
-- [ ] Normalized data card
-- [ ] Missing fields / warnings card
-- [ ] Source metadata card
-- [ ] Action bar: Ingest, Cancel (optional: Edit Before Ingest)
-- [ ] Clear distinction: source-provided vs normalized vs missing vs override
+- [x] Route: `/admin/ingestion/candidates/:id` or `/admin/ingestion/preview/:id`
+- [x] Header: district name, state, NCES id, status
+- [x] Source data card (read-only)
+- [x] Normalized data card
+- [x] Missing fields / warnings card
+- [x] Source metadata card
+- [x] Action bar: Ingest, Cancel (optional: Edit Before Ingest)
+- [x] Clear distinction: source-provided vs normalized vs missing vs override
 
 ## Notes
 

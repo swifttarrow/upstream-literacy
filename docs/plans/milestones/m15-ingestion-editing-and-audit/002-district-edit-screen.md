@@ -6,14 +6,14 @@ Build the district edit UI with source (read-only), editable normalized values, 
 
 ## Deliverables
 
-- [ ] Route: `/admin/ingestion/districts/:id/edit` or `/admin/districts/:id/edit`
-- [ ] Source values section (read-only)
-- [ ] Editable normalized values: district type, enrollment bucket, FRL bucket, EL bucket, grade bands, display name, notes
-- [ ] Override reason field (optional)
-- [ ] Validation messages on save
-- [ ] Save and Revert controls
-- [ ] Clear distinction: source-backed vs override (visual indicator)
-- [ ] Revert per-field or revert all overrides
+- [x] Route: `/admin/ingestion/districts/:id/edit` or `/admin/districts/:id/edit`
+- [x] Source values section (read-only)
+- [x] Editable normalized values: district type, enrollment bucket, FRL bucket, EL bucket, grade bands, display name, notes
+- [x] Override reason field (optional)
+- [x] Validation messages on save
+- [x] Save and Revert controls
+- [x] Clear distinction: source-backed vs override (visual indicator)
+- [x] Revert per-field or revert all overrides
 
 ## Notes
 

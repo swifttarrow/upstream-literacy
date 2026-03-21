@@ -8,7 +8,7 @@ Enable moderators to edit district data after ingestion, maintain audit logs for
 
 ## Dependencies
 
-- [ ] Milestone 14 (Ingestion Errors and Data Quality)
+- [x] Milestone 14 (Ingestion Errors and Data Quality)
 
 ## Changes Required
 
@@ -22,15 +22,15 @@ Enable moderators to edit district data after ingestion, maintain audit logs for
 ## Success Criteria
 
 ### Automated Verification
-- [ ] Edit API updates district_effective_attribute_values with override provenance
-- [ ] Audit log captures required actions with actor, action, district, timestamp
-- [ ] Re-ingestion preserves district_ingestion_events history
+- [x] Edit API updates district_effective_attribute_values with override provenance
+- [x] Audit log captures required actions with actor, action, district, timestamp
+- [x] Re-ingestion preserves district_ingestion_events history
 
 ### Manual Verification
-- [ ] Moderator can edit ingested district; changes persist with override distinction
-- [ ] Moderator can revert override to source value
-- [ ] Audit trail queryable for district operations
-- [ ] Re-ingestion shows diff preview; confirm overwrites; history preserved
+- [x] Moderator can edit ingested district; changes persist with override distinction
+- [x] Moderator can revert override to source value
+- [x] Audit trail queryable for district operations
+- [x] Re-ingestion shows diff preview; confirm overwrites; history preserved
 
 ## Tasks
 

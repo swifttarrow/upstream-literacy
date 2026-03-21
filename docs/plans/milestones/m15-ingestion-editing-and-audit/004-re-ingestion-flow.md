@@ -6,13 +6,13 @@ Allow moderators to re-run ingestion for already-ingested districts with preview
 
 ## Deliverables
 
-- [ ] Re-ingest action available for ingested districts (from candidate list or district detail)
-- [ ] Preview shows current ingested version vs incoming preview version (diff or side-by-side)
-- [ ] Warning before overwrite/merge: "Re-ingestion will update X fields. Overrides will be preserved / merged (define policy)."
-- [ ] Confirm step before proceeding
-- [ ] Preserve district_ingestion_events history (append new event, don't delete)
-- [ ] Policy: overrides preserved by default, or merge with user choice; document in PRD open questions
-- [ ] Re-ingest creates new job; same progress UI
+- [x] Re-ingest action available for ingested districts (from candidate list or district detail)
+- [x] Preview shows current ingested version vs incoming preview version (diff or side-by-side)
+- [x] Warning before overwrite/merge: "Re-ingestion will update X fields. Overrides will be preserved / merged (define policy)."
+- [x] Confirm step before proceeding
+- [x] Preserve district_ingestion_events history (append new event, don't delete)
+- [x] Policy: overrides preserved by default, or merge with user choice; document in PRD open questions
+- [x] Re-ingest creates new job; same progress UI
 
 ## Notes
 

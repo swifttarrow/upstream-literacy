@@ -6,12 +6,12 @@ Process batch ingestion asynchronously so the UI is not blocked; update job stat
 
 ## Deliverables
 
-- [ ] Enqueue ingestion job via pg-boss (or equivalent)
-- [ ] Worker processes districts; updates job record (succeeded/warning/failed counts)
-- [ ] Record-level outcomes persisted for progress UI
-- [ ] Single-district ingest may run synchronously for fast feedback
-- [ ] Batch ingest always async; moderator can navigate away and return to job
-- [ ] Idempotent per district (upsert, don't duplicate)
+- [x] Enqueue ingestion job via pg-boss (or equivalent)
+- [x] Worker processes districts; updates job record (succeeded/warning/failed counts)
+- [x] Record-level outcomes persisted for progress UI
+- [x] Single-district ingest may run synchronously for fast feedback
+- [x] Batch ingest always async; moderator can navigate away and return to job
+- [x] Idempotent per district (upsert, don't duplicate)
 
 ## Notes
 

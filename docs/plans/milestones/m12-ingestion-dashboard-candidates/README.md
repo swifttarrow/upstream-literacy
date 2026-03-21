@@ -8,7 +8,7 @@ Build the moderator-facing ingestion dashboard and district candidate list UI pe
 
 ## Dependencies
 
-- [ ] Milestone 11 (Ingestion Console Foundation)
+- [x] Milestone 11 (Ingestion Console Foundation)
 
 ## Changes Required
 
@@ -22,14 +22,14 @@ Build the moderator-facing ingestion dashboard and district candidate list UI pe
 ## Success Criteria
 
 ### Automated Verification
-- [ ] Dashboard loads without error for moderator
-- [ ] Candidate list renders with correct columns
-- [ ] Filters and search reduce result set as expected
+- [x] Dashboard loads without error for moderator
+- [x] Candidate list renders with correct columns
+- [x] Filters and search reduce result set as expected
 
 ### Manual Verification
-- [ ] Moderator sees summary counts and recent jobs
-- [ ] Moderator can search by district name, filter by state and status
-- [ ] Moderator can navigate to district preview from list
+- [x] Moderator sees summary counts and recent jobs
+- [x] Moderator can search by district name, filter by state and status
+- [x] Moderator can navigate to district preview from list
 
 ## Tasks
 

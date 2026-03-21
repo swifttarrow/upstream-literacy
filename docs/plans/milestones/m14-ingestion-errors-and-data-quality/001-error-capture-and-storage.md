@@ -6,11 +6,11 @@ Capture ingestion errors with structured fields and persist them for display and
 
 ## Deliverables
 
-- [ ] Error record schema: district_name, district_id, error_type, message, timestamp, job_id, retry_eligible
-- [ ] Error types: source_record_not_found, nces_mismatch, validation_failure, duplicate_conflict, required_field_missing, normalization_failure, db_write_failure
-- [ ] Insert errors during ingestion worker when district processing fails
-- [ ] Link errors to job and district candidate
-- [ ] API or query to fetch errors by job_id, district_id
+- [x] Error record schema: district_name, district_id, error_type, message, timestamp, job_id, retry_eligible
+- [x] Error types: source_record_not_found, nces_mismatch, validation_failure, duplicate_conflict, required_field_missing, normalization_failure, db_write_failure
+- [x] Insert errors during ingestion worker when district processing fails
+- [x] Link errors to job and district candidate
+- [x] API or query to fetch errors by job_id, district_id
 
 ## Notes
 

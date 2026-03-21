@@ -6,10 +6,10 @@ Create and load the curated 100-district seed list with NCES identifiers, mapped
 
 ## Deliverables
 
-- [ ] Seed file (JSON or CSV) with 100 districts: name, state, nces_district_id, district_type (large/mid/small), locale classification
-- [ ] Script to load seed into `district_candidates` or equivalent table (may extend `districts` with candidate status)
-- [ ] NCES ids mapped for all 100 districts (manual research or use NCES lookup)
-- [ ] Idempotent load; `npm run seed:district-candidates` or similar
+- [x] Seed file (JSON or CSV) with 100 districts: name, state, nces_district_id, district_type (large/mid/small), locale classification
+- [x] Script to load seed into `district_candidates` or equivalent table (may extend `districts` with candidate status)
+- [x] NCES ids mapped for all 100 districts (manual research or use NCES lookup)
+- [x] Idempotent load; `npm run seed:district-candidates` or similar
 
 ## Notes
 

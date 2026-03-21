@@ -8,7 +8,7 @@ Establish the backend foundation for the real district data ingestion console: 1
 
 ## Dependencies
 
-- [ ] Milestone 3 (District Data Ingestion & Admin Overrides)
+- [x] Milestone 3 (District Data Ingestion & Admin Overrides)
 
 ## Changes Required
 
@@ -22,9 +22,9 @@ Establish the backend foundation for the real district data ingestion console: 1
 ## Success Criteria
 
 ### Automated Verification
-- [ ] District candidate API returns 100 records with NCES ids and status
-- [ ] Ingestion job creation persists job record with status
-- [ ] Non-moderator/admin receives 403 on ingestion endpoints
+- [x] District candidate API returns 100 records with NCES ids and status
+- [x] Ingestion job creation persists job record with status
+- [x] Non-moderator/admin receives 403 on ingestion endpoints
 
 ### Manual Verification
 - [ ] Moderator can fetch candidate list

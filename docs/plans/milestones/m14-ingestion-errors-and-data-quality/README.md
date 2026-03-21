@@ -8,7 +8,7 @@ Capture and display ingestion errors, detect and flag missing data, and provide 
 
 ## Dependencies
 
-- [ ] Milestone 13 (District Preview and Ingest Flow)
+- [x] Milestone 13 (District Preview and Ingest Flow)
 
 ## Changes Required
 
@@ -23,15 +23,15 @@ Capture and display ingestion errors, detect and flag missing data, and provide 
 ## Success Criteria
 
 ### Automated Verification
-- [ ] Ingestion errors persisted with required fields
-- [ ] Missing data rules classify records correctly (Ready/Warning/Blocked)
-- [ ] Retry API processes failed records from job
+- [x] Ingestion errors persisted with required fields
+- [x] Missing data rules classify records correctly (Ready/Warning/Blocked)
+- [x] Retry API processes failed records from job
 
 ### Manual Verification
-- [ ] Moderator sees error details for failed districts
-- [ ] Moderator can retry eligible failures
-- [ ] Missing data warnings surfaced in preview and job summary
-- [ ] Job completion/failure triggers visible notification
+- [x] Moderator sees error details for failed districts
+- [x] Moderator can retry eligible failures
+- [x] Missing data warnings surfaced in preview and job summary
+- [x] Job completion/failure triggers visible notification
 
 ## Tasks
 

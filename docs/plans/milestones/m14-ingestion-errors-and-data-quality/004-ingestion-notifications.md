@@ -6,13 +6,13 @@ Notify moderators in the UI when ingestion jobs start, complete, complete with w
 
 ## Deliverables
 
-- [ ] In-UI notification when job starts (toast, banner, or bell)
-- [ ] Notification when job completes (success)
-- [ ] Notification when job completes with warnings
-- [ ] Notification when job fails
-- [ ] Notification when missing required data detected
-- [ ] Clear, actionable messages (not overly technical)
-- [ ] Optional: integrate with existing notifications system (m8) for consistency
+- [x] In-UI notification when job starts (toast, banner, or bell)
+- [x] Notification when job completes (success)
+- [x] Notification when job completes with warnings
+- [x] Notification when job fails
+- [x] Notification when missing required data detected
+- [x] Clear, actionable messages (not overly technical)
+- [x] Optional: integrate with existing notifications system (m8) for consistency
 
 ## Notes
 

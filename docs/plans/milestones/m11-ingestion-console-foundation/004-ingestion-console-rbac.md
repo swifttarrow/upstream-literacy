@@ -6,10 +6,10 @@ Enforce role-based access so only moderators and admins can access the ingestion
 
 ## Deliverables
 
-- [ ] Middleware or route guard: require `platform_role IN ('moderator', 'admin')` for `/admin/ingestion/*`
-- [ ] Reuse or extend existing `requireAdmin` if moderator should also pass (or add `requireModerator`)
-- [ ] Document permissions: moderator can view, preview, trigger ingest, edit; admin has all + configure, ingest-all
-- [ ] 403 response with clear message for unauthorized roles
+- [x] Middleware or route guard: require `platform_role IN ('moderator', 'admin')` for `/admin/ingestion/*`
+- [x] Reuse or extend existing `requireAdmin` if moderator should also pass (or add `requireModerator`)
+- [x] Document permissions: moderator can view, preview, trigger ingest, edit; admin has all + configure, ingest-all
+- [x] 403 response with clear message for unauthorized roles
 
 ## Notes
 

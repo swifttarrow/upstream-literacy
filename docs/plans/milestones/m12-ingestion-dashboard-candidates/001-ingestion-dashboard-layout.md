@@ -6,11 +6,11 @@ Create the ingestion dashboard page layout with summary cards and recent jobs pa
 
 ## Deliverables
 
-- [ ] Admin route: `/admin/ingestion` (or `/admin/districts/ingestion`)
-- [ ] Top summary cards: Not Ingested, Ingested, Warnings, Failed (counts from API)
-- [ ] Recent jobs panel: last N ingestion jobs with status, timestamps, outcome summary
-- [ ] Protected: moderator/admin only
-- [ ] Responsive layout; loading and error states
+- [x] Admin route: `/admin/ingestion` (or `/admin/districts/ingestion`)
+- [x] Top summary cards: Not Ingested, Ingested, Warnings, Failed (counts from API)
+- [x] Recent jobs panel: last N ingestion jobs with status, timestamps, outcome summary
+- [x] Protected: moderator/admin only
+- [x] Responsive layout; loading and error states
 
 ## Notes
 

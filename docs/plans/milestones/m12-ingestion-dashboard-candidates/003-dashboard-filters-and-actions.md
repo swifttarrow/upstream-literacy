@@ -6,13 +6,13 @@ Implement filter bar (search, state, status) and CTA buttons (Ingest Selected, R
 
 ## Deliverables
 
-- [ ] Search input: filter by district name (debounced)
-- [ ] State dropdown filter
-- [ ] Status filter (Not Ingested, Ingested, etc.)
-- [ ] Ingest Selected button: enables when rows selected; triggers batch ingest (stub or wire to m13)
-- [ ] Retry Failed button: visible when failed records exist; navigates or triggers retry
-- [ ] View Warnings button: filter or navigate to warning records
-- [ ] Filters persist in URL (query params) for shareable links
+- [x] Search input: filter by district name (debounced)
+- [x] State dropdown filter
+- [x] Status filter (Not Ingested, Ingested, etc.)
+- [x] Ingest Selected button: enables when rows selected; triggers batch ingest (stub or wire to m13)
+- [x] Retry Failed button: visible when failed records exist; navigates or triggers retry
+- [x] View Warnings button: filter or navigate to warning records
+- [x] Filters persist in URL (query params) for shareable links
 
 ## Notes
 

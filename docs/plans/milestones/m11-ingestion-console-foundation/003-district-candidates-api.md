@@ -6,11 +6,11 @@ Expose an API for moderators to list district candidates with status, filters, a
 
 ## Deliverables
 
-- [ ] `GET /admin/ingestion/candidates` with query params: search, state, status, page, limit
-- [ ] Response: list of candidates with name, state, nces_id, status, missing_data_indicator, last_refresh
-- [ ] Status values: NotIngested, ReadyToIngest, InProgress, Ingested, IngestedWithWarnings, Failed
-- [ ] Pagination and total count
-- [ ] Auth: moderator or admin only
+- [x] `GET /admin/ingestion/candidates` with query params: search, state, status, page, limit
+- [x] Response: list of candidates with name, state, nces_id, status, missing_data_indicator, last_refresh
+- [x] Status values: NotIngested, ReadyToIngest, InProgress, Ingested, IngestedWithWarnings, Failed
+- [x] Pagination and total count
+- [x] Auth: moderator or admin only
 
 ## Notes
 

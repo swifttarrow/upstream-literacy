@@ -6,13 +6,13 @@ Display ingestion progress during active jobs: progress bar, per-record status, 
 
 ## Deliverables
 
-- [ ] Job detail view (modal or dedicated route): `/admin/ingestion/jobs/:jobId`
-- [ ] Progress bar: total, completed, succeeded, warnings, failed
-- [ ] Per-record list: district name, status (pending/running/succeeded/warning/failed)
-- [ ] Started at, elapsed time
-- [ ] Polling or websocket for live updates
-- [ ] Final job summary when complete
-- [ ] Retry failed button (wire to m14)
+- [x] Job detail view (modal or dedicated route): `/admin/ingestion/jobs/:jobId`
+- [x] Progress bar: total, completed, succeeded, warnings, failed
+- [x] Per-record list: district name, status (pending/running/succeeded/warning/failed)
+- [x] Started at, elapsed time
+- [x] Polling or websocket for live updates
+- [x] Final job summary when complete
+- [x] Retry failed button (wire to m14)
 
 ## Notes
 

@@ -6,12 +6,12 @@ Display ingestion errors in the UI and allow moderators to retry eligible failur
 
 ## Deliverables
 
-- [ ] Error list in job detail view (failed tab or section)
-- [ ] Each error shows: district name, id, error type, message, timestamp, retry eligibility
-- [ ] Retry button per error or "Retry all eligible" for job
-- [ ] `POST /admin/ingestion/jobs/:jobId/retry` with optional district_ids filter
-- [ ] Retry creates new job or re-queues failed records; prevents retry of non-eligible
-- [ ] Success feedback when retry completes
+- [x] Error list in job detail view (failed tab or section)
+- [x] Each error shows: district name, id, error type, message, timestamp, retry eligibility
+- [x] Retry button per error or "Retry all eligible" for job
+- [x] `POST /admin/ingestion/jobs/:jobId/retry` with optional district_ids filter
+- [x] Retry creates new job or re-queues failed records; prevents retry of non-eligible
+- [x] Success feedback when retry completes
 
 ## Notes
 

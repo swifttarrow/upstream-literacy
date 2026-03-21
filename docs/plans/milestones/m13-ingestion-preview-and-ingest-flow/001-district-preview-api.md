@@ -6,11 +6,11 @@ Expose an API that returns raw source values, normalized app values, and missing
 
 ## Deliverables
 
-- [ ] `GET /admin/ingestion/candidates/:id/preview` (or `:ncesId/preview`)
-- [ ] Response: identity, demographics, normalized matching fields, missing fields, source metadata
-- [ ] Field-level indicators: source-provided, system-normalized, empty/missing, override
-- [ ] Data quality warnings per PRD §10.7
-- [ ] Auth: moderator/admin only
+- [x] `GET /admin/ingestion/candidates/:id/preview` (or `:ncesId/preview`)
+- [x] Response: identity, demographics, normalized matching fields, missing fields, source metadata
+- [x] Field-level indicators: source-provided, system-normalized, empty/missing, override
+- [x] Data quality warnings per PRD §10.7
+- [x] Auth: moderator/admin only
 
 ## Notes
 

@@ -6,12 +6,12 @@ Implement the API for moderators to trigger single-district or batch ingestion, 
 
 ## Deliverables
 
-- [ ] `POST /admin/ingestion/trigger` with body: `{ district_ids: string[] }` or single `district_id`
-- [ ] Create ingestion job record; queue districts for processing
-- [ ] Prevent duplicate active ingestion for same district (return 409 or skip)
-- [ ] Confirmation: require `confirm: true` for batch or ingest-all
-- [ ] Return job_id for progress polling
-- [ ] Auth: moderator for single/batch; admin for ingest-all (if gated)
+- [x] `POST /admin/ingestion/trigger` with body: `{ district_ids: string[] }` or single `district_id`
+- [x] Create ingestion job record; queue districts for processing
+- [x] Prevent duplicate active ingestion for same district (return 409 or skip)
+- [x] Confirmation: require `confirm: true` for batch or ingest-all
+- [x] Return job_id for progress polling
+- [x] Auth: moderator for single/batch; admin for ingest-all (if gated)
 
 ## Notes
 

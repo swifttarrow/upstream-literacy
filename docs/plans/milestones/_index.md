@@ -16,11 +16,11 @@
 | 8 | [m8-notifications](./m8-notifications/) | Pending |
 | 9 | [m9-ai-features-user-scoped](./m9-ai-features-user-scoped/) | Pending |
 | 10 | [m10-frontend-polish](./m10-frontend-polish/) | Pending |
-| 11 | [m11-ingestion-console-foundation](./m11-ingestion-console-foundation/) | Pending |
-| 12 | [m12-ingestion-dashboard-candidates](./m12-ingestion-dashboard-candidates/) | Pending |
-| 13 | [m13-ingestion-preview-and-ingest-flow](./m13-ingestion-preview-and-ingest-flow/) | Pending |
-| 14 | [m14-ingestion-errors-and-data-quality](./m14-ingestion-errors-and-data-quality/) | Pending |
-| 15 | [m15-ingestion-editing-and-audit](./m15-ingestion-editing-and-audit/) | Pending |
+| 11 | [m11-ingestion-console-foundation](./m11-ingestion-console-foundation/) | Complete |
+| 12 | [m12-ingestion-dashboard-candidates](./m12-ingestion-dashboard-candidates/) | Complete |
+| 13 | [m13-ingestion-preview-and-ingest-flow](./m13-ingestion-preview-and-ingest-flow/) | Complete |
+| 14 | [m14-ingestion-errors-and-data-quality](./m14-ingestion-errors-and-data-quality/) | Complete |
+| 15 | [m15-ingestion-editing-and-audit](./m15-ingestion-editing-and-audit/) | Complete |
 
 ## Dependencies
 

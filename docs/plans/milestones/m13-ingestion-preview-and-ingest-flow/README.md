@@ -8,7 +8,7 @@ Implement the district preview screen, single and batch ingestion from the UI, a
 
 ## Dependencies
 
-- [ ] Milestone 12 (Ingestion Dashboard and Candidate List UI)
+- [x] Milestone 12 (Ingestion Dashboard and Candidate List UI)
 
 ## Changes Required
 
@@ -22,16 +22,16 @@ Implement the district preview screen, single and batch ingestion from the UI, a
 ## Success Criteria
 
 ### Automated Verification
-- [ ] Preview API returns source and normalized data for candidate
-- [ ] Ingest API creates job and processes districts
-- [ ] Progress endpoint returns current job state
-- [ ] Duplicate active ingestion for same district is prevented
+- [x] Preview API returns source and normalized data for candidate
+- [x] Ingest API creates job and processes districts
+- [x] Progress endpoint returns current job state
+- [x] Duplicate active ingestion for same district is prevented
 
 ### Manual Verification
-- [ ] Moderator can preview district before ingesting
-- [ ] Moderator can trigger single-district ingest and see progress
-- [ ] Moderator can trigger batch ingest; progress updates during run
-- [ ] Confirmation required for batch and ingest-all
+- [x] Moderator can preview district before ingesting
+- [x] Moderator can trigger single-district ingest and see progress
+- [x] Moderator can trigger batch ingest; progress updates during run
+- [x] Confirmation required for batch and ingest-all
 
 ## Tasks
 

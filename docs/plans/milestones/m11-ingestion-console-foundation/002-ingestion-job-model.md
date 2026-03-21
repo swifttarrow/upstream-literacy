@@ -6,10 +6,10 @@ Define and implement the ingestion job model to track batch and single-district 
 
 ## Deliverables
 
-- [ ] Migration or schema addition for `district_ingestion_jobs` (or equivalent)
-- [ ] Fields: id, status (Queued|Running|Completed|CompletedWithWarnings|Failed|PartiallyFailed), created_by, started_at, completed_at, total_count, succeeded_count, warning_count, failed_count
-- [ ] Record-level status table or JSON for per-district outcomes (Pending|Running|Succeeded|SucceededWithWarnings|Failed)
-- [ ] API or service to create job, update progress, finalize job
+- [x] Migration or schema addition for `district_ingestion_jobs` (or equivalent)
+- [x] Fields: id, status (Queued|Running|Completed|CompletedWithWarnings|Failed|PartiallyFailed), created_by, started_at, completed_at, total_count, succeeded_count, warning_count, failed_count
+- [x] Record-level status table or JSON for per-district outcomes (Pending|Running|Succeeded|SucceededWithWarnings|Failed)
+- [x] API or service to create job, update progress, finalize job
 
 ## Notes
 

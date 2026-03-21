@@ -27,7 +27,7 @@ This platform enables:
 
 ---
 
-## 4. Non-Goals (MVP)
+## 4. Out-of-scope
 
 * Public social feed
 * ML-based recommendation engine

@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 
 import jwtPlugin from './plugins/jwt.js';
+import { startIngestionWorker } from './jobs/ingestion-worker.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
@@ -15,6 +16,7 @@ import conversationsRoutes from './routes/conversations.js';
 import moderationRoutes from './routes/moderation.js';
 import notificationsRoutes from './routes/notifications.js';
 import aiRoutes from './routes/ai.js';
+import ingestionRoutes from './routes/ingestion.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -47,6 +49,7 @@ export async function buildServer() {
   await fastify.register(moderationRoutes, { prefix: '/api' });
   await fastify.register(notificationsRoutes, { prefix: '/api' });
   await fastify.register(aiRoutes, { prefix: '/api' });
+  await fastify.register(ingestionRoutes, { prefix: '/api' });
 
   return fastify;
 }
@@ -56,6 +59,12 @@ async function main() {
     const fastify = await buildServer();
     await fastify.listen({ port: PORT, host: HOST });
     console.log(`Server listening on ${HOST}:${PORT}`);
+
+    const dbUrl = process.env.DATABASE_URL;
+    if (dbUrl && process.env.NODE_ENV !== 'test') {
+      await startIngestionWorker(dbUrl);
+      console.log('Ingestion worker started (pg-boss)');
+    }
   } catch (err) {
     console.error('Error starting server:', err);
     process.exit(1);

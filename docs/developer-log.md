@@ -381,6 +381,8 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** Add Drizzle and drizzle-orm; define schema reflecting existing tables or use raw SQL where needed; use pg as underlying driver; optional drizzle-kit for migrations.
 **Owner:** Developer
 
+## Review/Validate
+
 ### [2026-03-21] Frontend–backend communication: proxy, IPv4, and route alignment
 
 **Context:** Local dev was failing with 404s on auth, ECONNREFUSED to ::1:3001, and route mismatches between Next.js proxy and Fastify.
@@ -389,8 +391,4 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Rationale:** Same-origin API requests avoid CORS issues and work when backend runs on a different port; 127.0.0.1 forces IPv4 where backend listens on 0.0.0.0; /api prefix keeps proxy rewrite and backend routes in sync.
 **Impact:** next.config.js rewrites /api/:path* → http://127.0.0.1:3001/api/:path*; backend registers routes with prefix /api; frontend api.ts uses /api base in browser (or NEXT_PUBLIC_API_URL when set); next.config.ts replaced with next.config.js for Next.js 14 compatibility.
 **Owner:** Developer
-
-## Polish
-
-
 

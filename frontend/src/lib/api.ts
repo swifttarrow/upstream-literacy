@@ -1,8 +1,9 @@
-// Use /api proxy (Next.js rewrites to backend) when no explicit API URL; avoids CORS and 404s when backend URL differs
+// Use /api proxy (Next.js rewrites to backend) when no explicit API URL; avoids CORS and 404s when backend URL differs.
+// Server-side must use full URL including /api since rewrites only apply to browser requests.
 const API_BASE =
   typeof window !== 'undefined'
     ? process.env.NEXT_PUBLIC_API_URL || '/api'
-    : process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+    : process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001/api';
 
 class ApiError extends Error {
   constructor(

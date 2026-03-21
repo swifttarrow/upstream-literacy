@@ -49,8 +49,17 @@ async function migrate() {
       const statements = splitSql(sql);
 
       for (const stmt of statements) {
-        const trimmed = stmt.trim();
-        if (!trimmed || trimmed.startsWith('--')) continue;
+        // Strip leading comment/blank lines so "-- comment\nCREATE TABLE..." is not skipped
+        const trimmed = stmt
+          .trim()
+          .split('\n')
+          .filter((line) => {
+            const t = line.trim();
+            return t && !t.startsWith('--');
+          })
+          .join('\n')
+          .trim();
+        if (!trimmed) continue;
         try {
           await client.query(trimmed);
         } catch (err: unknown) {

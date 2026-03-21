@@ -1,4 +1,8 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Use /api proxy (Next.js rewrites to backend) when no explicit API URL; avoids CORS and 404s when backend URL differs
+const API_BASE =
+  typeof window !== 'undefined'
+    ? process.env.NEXT_PUBLIC_API_URL || '/api'
+    : process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
 class ApiError extends Error {
   constructor(

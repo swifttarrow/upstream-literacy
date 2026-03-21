@@ -22,7 +22,7 @@ interface Participant {
   left_at: string | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
 export default function ConversationPage({ params }: { params: { id: string } }) {

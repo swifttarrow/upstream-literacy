@@ -1,0 +1,462 @@
+# District Community Matching Platform — Implementation Plan
+
+## Overview
+
+Implementation plan for the District Community Matching Platform per [prd.md](../../prd.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations.
+
+## Current State Analysis
+
+| Area | Status | Notes |
+|------|--------|------|
+| **PRD** | Complete | Full product requirements, MVP scope, NFRs |
+| **Schema** | Complete | PostgreSQL DDL in `schema/01_extensions_enums.sql` through `schema/10_triggers.sql`; documented in `docs/db-schema.md` |
+| **Research / decisions** | Complete | `developer-log.md` captures architecture and product decisions |
+| **Application code** | None | No backend API, frontend, migrations runner, or infra |
+| **docs/plans/** | New | This plan |
+
+**Constraints discovered:**
+- Schema is raw SQL (no migration runner); must run in order 01→10
+- Schema expects `password_hash` (auth via credentials) with optional external IdP later
+- Group max 8 participants enforced by DB trigger (`schema/10_triggers.sql`)
+- Direct conversations use `conversation_direct_pairs` with `(user_low_id, user_high_id)` uniqueness
+- Moderation content visibility is app-layer; schema does not implement RLS
+
+---
+
+## Technical Decisions
+
+| Decision | Choice | Notes |
+|----------|--------|-------|
+| **Backend** | Node/TypeScript + Fastify | Plugin ecosystem (Postgres, websocket, JWT); @fastify/websocket integrates ws |
+| **Frontend** | Next.js (App Router) | SSR/SSG, good DX; fits modular monolith + web frontend |
+| **Migrations** | Raw SQL runner | Run `schema/*.sql` in order; schema already exists |
+| **Auth** | Password (bcrypt) first; OAuth later | PRD: registration + login; schema supports nullable `password_hash` for IdP |
+| **Websockets** | ws | Minimalist; @fastify/websocket provides integration; rooms/broadcast in app layer |
+| **Background jobs** | pg-boss | Postgres-native; no Redis; ACID guarantees for ingestion/moderation |
+
+See `developer-log.md` for decision rationale.
+
+---
+
+## Desired End State
+
+**Specification:** Full MVP as defined in PRD §12 and §8, including:
+
+1. Auth + profiles (district, role, bio, primary/secondary problems)
+2. District data ingestion, normalization, display, admin overrides
+3. Problem taxonomy (admin-managed, categorized)
+4. Discovery & matching (filter by problem, district, role, geography; ranked results; exact vs close match; match explanations)
+5. Connections (send/accept requests; gate for messaging)
+6. Real-time 1:1 and group messaging (websockets; connected users only)
+7. Groups (create from connected users, max 8)
+8. Moderation (report, review, suspend, audit logs)
+9. Notifications (new messages, connection requests, status updates)
+10. User-scoped AI (conversation summarization, suggested actions) — can be phased later
+
+**Verification:**
+- NFRs: match results < 2s; real-time messaging; encrypted in transit; RBAC enforced
+- User flows: signup → complete profile → browse suggested peers → connect → message connected peers → create/join groups
+
+---
+
+## What We're NOT Doing
+
+- Public social feed
+- ML-based recommendation engine
+- Broad dataset ingestion
+- Vendor participation
+- Fully automated moderation
+- Microservices or dedicated search infra (per developer log)
+- IdP-only auth in MVP
+- RLS in initial schema
+
+---
+
+## Phase 1: Foundation — Project Setup, DB, Auth
+
+### Overview
+
+Bootstrap the monolith: project structure, database migrations, connection pool, and authentication (registration, login, sessions). No domain logic beyond identity.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Root** | `package.json`, `tsconfig.json`, `.env.example`, `Makefile` or `package.json` scripts |
+| **Migrations** | Script to run `schema/*.sql` in order against Postgres; idempotent where safe |
+| **DB** | Connection module (e.g. `pg` or `drizzle`); health check |
+| **Auth** | Registration (email + password), login, session (JWT or cookie); bcrypt for `password_hash` |
+| **API** | Minimal routes: `POST /auth/register`, `POST /auth/login`, `GET /auth/me`; middleware for protected routes |
+| **Validation** | Zod schemas for auth inputs |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] `npm run build` succeeds
+- [ ] `npm run lint` passes
+- [ ] Migration script runs without error on fresh DB
+- [ ] `POST /auth/register` + `POST /auth/login` → valid session; `GET /auth/me` returns user (no password_hash)
+- [ ] Unauthenticated access to protected route returns 401
+
+#### Manual Verification
+- [ ] User can register and log in via API
+- [ ] Session persists and validates correctly
+- [ ] Invalid credentials return 4xx
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 2: User Profiles, Districts, Taxonomy
+
+### Overview
+
+Implement profile CRUD, district lookup, and problem taxonomy. Enables profile completion (district + primary problem) for soft gating. No discovery or messaging yet.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Users** | `GET/PATCH /users/me` (profile); enforce `profile_completed_at` when district + primary problem set |
+| **Districts** | `GET /districts` (list with filters); `GET /districts/:id`; read from `districts` + `district_effective_attribute_values` |
+| **Taxonomy** | `GET /problem-categories`, `GET /problem-statements` (by category, status=active); read-only for members |
+| **Admin** | `POST/PATCH` taxonomy (category, problem) for `platform_role = admin`; RBAC checks |
+| **Validation** | Zod schemas for profile, district filters, taxonomy |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] `make test` / `npm test` passes
+- [ ] `make lint` passes
+- [ ] Profile update with district + primary problem sets `profile_completed_at`
+- [ ] District and taxonomy endpoints return expected shapes
+
+#### Manual Verification
+- [ ] User can complete profile (district, role, bio, primary + secondary problems)
+- [ ] Districts display with attributes and source/timestamp
+- [ ] Admin can manage problem categories and statements
+- [ ] Soft gate: messaging blocked until profile completed (stub 403 response)
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 3: District Data Ingestion & Admin Overrides
+
+### Overview
+
+Ingest public district data into `district_ingestion_events`, compute `district_effective_attribute_values`, and support admin overrides. Seed initial attribute definitions and demo data for cold start.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Attribute definitions** | Seed `district_attribute_definitions` (per db-schema.md MVP set: type, enrollment, state, FRL, EL, grade bands) |
+| **Ingestion** | Job/script: parse source → normalize → insert `district_ingestion_events`; merge into `district_effective_attribute_values` |
+| **Admin overrides** | `POST/PATCH /admin/districts/:id/overrides`; insert/update `district_admin_overrides`; recompute effective values |
+| **Display** | Existing district endpoints surface `provenance`, `last_ingestion_event_id`, `last_override_id` where relevant |
+| **Demo/seed** | Optional seed script for demo districts and users (`is_demo = true`) |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
+- [ ] Admin override updates effective values correctly
+- [ ] Source/timestamp visible in district API responses
+
+#### Manual Verification
+- [ ] Districts show ingested attributes with provenance
+- [ ] Admin can override a value and see updated display
+- [ ] Demo data available for cold-start testing
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 4: Discovery, Matching & Connections
+
+### Overview
+
+Implement discovery API (suggested connections) and LinkedIn-style connections: filter by problem, district attributes, role, geography; rank results; label exact vs close match; user can send connection requests to any discovered peer; accept/reject flow. No messaging yet—discovery and connection establishment only.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Schema** | Add `user_connections` table (user_a_id, user_b_id, status: pending \| accepted, requested_by_user_id, created_at, resolved_at); unique on (user_a_id, user_b_id) with user_a < user_b |
+| **Matching** | `GET /discovery/matches` with query params: `problemId`, `districtFilters`, `professionalRole`, `stateRegion`, etc.; returns suggested peers to connect with |
+| **Filtering** | DB-level filters (problem, district attributes, geography); exclude suspended, non-approved |
+| **Ranking** | App-layer heuristic: primary problem match > secondary > district similarity; deterministic, explainable |
+| **Response** | List of users with `matchType` (exact \| close), `explanation`, `connectionStatus` (none \| pending_sent \| pending_received \| connected) |
+| **Connections** | `POST /connections/requests` (target user_id); `POST /connections/requests/:id/accept`, `POST /connections/requests/:id/reject`; `GET /connections` (list connected, pending sent, pending received) |
+| **Cold start** | When exact matches scarce, broaden criteria; include `is_demo_profile` when configured; label clearly |
+| **Performance** | Index `user_problem_selections(problem_statement_id)`, `user_connections(user_a_id, user_b_id)`; target < 2s per request |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] Matching returns only approved, non-suspended users with profile completed
+- [ ] Filters reduce result set as expected
+- [ ] Match explanations and connectionStatus present and coherent
+- [ ] Connection request creates pending row; accept/reject updates status
+- [ ] Cannot send duplicate connection request; cannot connect with self
+- [ ] Query latency < 2s under test load
+
+#### Manual Verification
+- [ ] User can discover peers by problem and district filters
+- [ ] User can send connection request; recipient sees pending; accept creates connection
+- [ ] Exact vs close matches labeled correctly
+- [ ] Cold-start behavior shows close matches when exact are limited
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 5: Conversations & Real-Time Messaging
+
+### Overview
+
+Enable 1:1 and group conversations. Enforce: messaging only between connected users; profile completion required. Real-time delivery via websockets.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Conversations** | `POST /conversations` (direct or group); resolve/create `conversation_direct_pairs` for 1:1 |
+| **Messaging gate** | Before create/message: requester has `profile_completed_at`; users are connected (accepted connection) |
+| **Messages** | `POST /conversations/:id/messages`; `GET /conversations/:id/messages` (paginated) |
+| **Websockets** | Connect with auth; subscribe to conversation channels; broadcast new messages to participants |
+| **Inbox** | `GET /conversations` (user's active conversations, ordered by `updated_at`) |
+| **Group creation** | Participants must be connected; enforce max 8 (DB trigger + app check) |
+| **Validation** | Zod for message body, participant list; enforce policy in service layer |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] `make test` passes
+- [ ] Messaging blocked when profile incomplete or users not connected
+- [ ] Direct conversation idempotent for same user pair
+- [ ] Group creation fails when > 8 participants or non-connected user included
+- [ ] Websocket delivers new message to participants
+
+#### Manual Verification
+- [ ] User can start 1:1 and group conversations with connected peers
+- [ ] Messages appear in real time
+- [ ] Conversation history loads correctly
+- [ ] Soft-deleted messages hidden from UI
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 6: Groups & Participant Management
+
+### Overview
+
+Extend conversation UX: join/leave groups, list participants, manage membership. Ensure group creation from connected users only and max 8 enforced in app and DB.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Participants** | `GET /conversations/:id/participants`; `POST /conversations/:id/participants` (invite); `DELETE` (leave) |
+| **Invites** | Invite only connected users; enforce 8-participant cap before insert |
+| **Group metadata** | Optional `shared_problem_statement_id` for contextual prompts in compose UX |
+| **Leave** | Set `left_at`; do not delete; preserve history |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] Cannot add non-connected user to group
+- [ ] Cannot exceed 8 active participants (app + DB trigger)
+- [ ] Leave sets `left_at`; user no longer receives messages
+
+#### Manual Verification
+- [ ] User can add connected peers to group
+- [ ] User can leave group; history preserved
+- [ ] Contextual prompts (shared problem) available in compose
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 7: Moderation — Reports, Review, Suspension
+
+### Overview
+
+Implement reporting and moderator workflows: report user/message/conversation; review; dismiss, resolve, warn, suspend. Audit logging for actions.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Reports** | `POST /reports` (target_type + target IDs, reason_code, details); auth required |
+| **Moderator** | `GET /reports` (filter by status); `POST /moderation/actions` (dismiss, resolve, warn, suspend, delete message, close conversation) |
+| **Suspension** | Set `users.suspended_until`; block login and messaging for suspended users |
+| **Audit** | Insert `audit_log_entries` for moderation actions; include actor, action, entity, metadata |
+| **Content visibility** | Moderator reads `messages.body` only for reported conversations (API enforcement) |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] Report creates row in `reports` with correct target_type/target_id
+- [ ] Moderation action updates report, user, or message as expected
+- [ ] Suspended user cannot log in or send messages
+- [ ] Audit log entries created for each action
+
+#### Manual Verification
+- [ ] User can report content
+- [ ] Moderator can review and take action
+- [ ] Suspended user sees appropriate messaging
+- [ ] Audit trail queryable for compliance
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 8: Notifications
+
+### Overview
+
+Notify users of new messages and status updates (e.g. membership approved). Store in `notifications`; deliver via websocket or polling; mark read.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Create** | On new message: create notification for other participants (type `new_message`) |
+| **Create** | On connection request: create notification for target (type `connection_request`) |
+| **Create** | On connection accepted: create notification for requester (type `connection_accepted`) |
+| **Create** | On membership_status change: create notification (type `membership_status`) |
+| **API** | `GET /notifications` (paginated, filter unread); `PATCH /notifications/:id/read` |
+| **Delivery** | Push via websocket when connected; else poll or next fetch |
+| **Background** | Optional job to batch-create notifications for offline users |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] New message creates notification for recipients
+- [ ] Membership status change creates notification
+- [ ] Mark read updates `read_at`
+- [ ] Unread count accurate
+
+#### Manual Verification
+- [ ] User receives notification when message arrives
+- [ ] User sees unread count and can mark read
+- [ ] Notifications appear in real time when connected
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 9: AI Features (User-Scoped)
+
+### Overview
+
+User-scoped AI: conversation summarization and suggested next steps. Only operates on conversations the user participates in. Store artifacts in `user_ai_artifacts`.
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Summarization** | `POST /conversations/:id/summarize`; call LLM with user-visible messages only; store in `user_ai_artifacts` |
+| **Suggested actions** | `POST /conversations/:id/suggest-actions`; store in `user_ai_artifacts` |
+| **Retrieval** | `GET /conversations/:id/ai-artifacts` (user-scoped; verify participation) |
+| **LLM** | Integrate provider (e.g. OpenAI, Anthropic); prompt versioning in artifact metadata |
+| **Rate limiting** | Protect AI endpoints from abuse |
+| **Scope** | Enforce: requester must be participant; no global scanning |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] AI endpoints enforce participation check
+- [ ] Artifacts stored with correct `user_id`, `conversation_id`, `kind`
+- [ ] Non-participant receives 403
+
+#### Manual Verification
+- [ ] User can request summary of their conversation
+- [ ] User receives suggested next steps
+- [ ] Artifacts persist and display correctly
+
+**Note:** Pause for human confirmation after this phase before proceeding.
+
+---
+
+## Phase 10: Frontend & Polish
+
+### Overview
+
+Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, notifications, moderation (admin). Responsive, accessible, aligned with NFRs (fast onboarding, clear match explanations).
+
+### Changes Required
+
+| Area | Changes |
+|------|---------|
+| **Auth** | Login, register, session handling |
+| **Profile** | Edit profile, district selection, problem selection |
+| **Discovery** | Match list with filters, exact/close labels, explanations, connection status |
+| **Connections** | Send/accept connection requests, list connections and pending |
+| **Messaging** | Inbox, conversation view, compose, real-time updates |
+| **Groups** | Create group, add/remove participants, group conversation view |
+| **Notifications** | Bell/indicator, list, mark read |
+| **Moderation** | Admin/moderator: report queue, actions |
+| **Polish** | Loading states, error handling, accessibility, performance |
+
+### Success Criteria
+
+#### Automated Verification
+- [ ] `npm run build` succeeds
+- [ ] E2E or integration tests for critical paths (optional)
+- [ ] Lighthouse/accessibility checks pass (if configured)
+
+#### Manual Verification
+- [ ] End-to-end user journey: signup → profile → discover → connect → message → group
+- [ ] Match explanations clear and useful
+- [ ] Real-time messaging feels responsive
+- [ ] Moderation workflow usable by moderator
+
+---
+
+## Dependencies Between Phases
+
+```
+Phase 1 (Foundation)
+    ↓
+Phase 2 (Profiles, Districts, Taxonomy)
+    ↓
+Phase 3 (Ingestion)
+    ↓
+Phase 4 (Discovery/Matching/Connections)
+    ↓
+Phase 5 (Conversations/Messaging) ←→ Phase 6 (Groups) — can overlap
+    ↓
+Phase 7 (Moderation)
+    ↓
+Phase 8 (Notifications)
+    ↓
+Phase 9 (AI) — can parallel with 8
+    ↓
+Phase 10 (Frontend) — can start after Phase 2, iterate each phase
+```
+
+---
+
+## Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| Match performance > 2s | Index tuning; consider materialized view or cached match set for heavy users |
+| Websocket scale | Start with single-instance; sticky sessions or Redis adapter for horizontal scale later |
+| Poor data quality | Start with small, high-confidence attribute set; validate ingestion output |
+| Cold start empty results | Progressive broadening; seeded demo profiles; clear "close match" labeling |
+| Moderation content access | Enforce in API; no RLS initially; document policy clearly |
+
+---
+
+## References
+
+- PRD: `prd.md`
+- Schema: `docs/db-schema.md`, `schema/*.sql`
+- Research / decisions: `developer-log.md`
+- Plan prompt: `agent/prompts/plan.md`
+- Implement prompt: `agent/prompts/implement.md`

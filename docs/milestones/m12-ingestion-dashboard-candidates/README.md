@@ -14,7 +14,7 @@ Build the moderator-facing ingestion dashboard with upload area, district list (
 
 | Area | Changes |
 |------|---------|
-| **Upload area** | Drag-and-drop or file picker for NCES CCD CSV; link to NCES download page |
+| **Upload area** | Two required file inputs (CCD district CSV, EDGE geocode CSV); links to CCD and EDGE download pages |
 | **Dashboard** | Summary cards (Total, Fully Complete, Partial, Incomplete); recent upload/jobs panel; filter bar |
 | **District list** | Table with district name, state, NCES id, completeness score, missing indicator; search, state filter, completeness filter |
 | **Navigation** | Link to district detail; CTA buttons (Upload New NCES Data, Retry Failed, View Low-Completeness) |

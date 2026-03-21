@@ -17,7 +17,7 @@ Process batch ingestion asynchronously so the UI is not blocked; update job stat
 
 - PRD §14.1: batch ingestion async without blocking UI
 - Reuse existing district ingestion logic (district_ingestion_events, district_effective_attribute_values)
-- Parse uploaded CSV rows; normalize each; insert; compute completeness; handle errors per PRD §10.6
+- Parse uploaded CCD and EDGE CSVs; join by LEAID; normalize each row; insert with coordinates from EDGE; compute completeness; handle errors per PRD §10.6
 
 ## Verification
 

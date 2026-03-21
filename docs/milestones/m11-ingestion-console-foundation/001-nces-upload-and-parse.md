@@ -1,33 +1,41 @@
-# Task 001: NCES Upload and Parse
+# Task 001: NCES Dual File Upload and Parse
 
 ## Goal
 
-Replace the 100-district seed approach with an NCES CCD file upload. Moderators upload the latest NCES district CSV; the system parses it, validates format, and creates an ingestion job to process all districts automatically.
+Replace the 100-district seed approach with a dual file upload. Moderators upload both (1) NCES CCD district CSV and (2) EDGE Public LEA Geocode CSV; the system parses both, validates format, joins by LEAID, and creates an ingestion job to process all districts with coordinates from EDGE.
 
 ## Deliverables
 
-- [ ] Upload endpoint: `POST /admin/ingestion/upload` — accepts multipart/form-data CSV file
-- [ ] Parse CCD district CSV format (validate columns, handle encoding)
-- [ ] On valid upload: create ingestion job; enqueue async processing of all rows
-- [ ] On invalid upload: return 400 with parse/validation errors
-- [ ] Link or docs for where to download latest CCD from nces.ed.gov
+- [ ] Upload endpoint: `POST /admin/ingestion/upload` — accepts multipart/form-data with **two required files**: `ccd_file` and `edge_file`
+- [ ] Parse CCD district CSV (validate columns: LEAID/NCES id, name, state, enrollment, etc.)
+- [ ] Parse EDGE geocode CSV (validate columns: LEAID, LAT, LON; extract from ZIP or accept pre-extracted CSV)
+- [ ] Build LEAID→(LAT, LON) map from EDGE; join when creating district_candidates from CCD rows
+- [ ] On valid upload: create ingestion job; enqueue async processing; populate latitude/longitude from EDGE where matched
+- [ ] On invalid upload: return 400 with parse/validation errors (indicate which file failed)
+- [ ] Links to download pages: [CCD Data Files](https://nces.ed.gov/ccd/files.asp), [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations)
 
 ## Notes
 
-- PRD §§10.1, 8: NCES CCD format; upload triggers auto-ingest
-- CCD files vary (directory vs universe); support at least one standard format
+- PRD §§10.1, 8: Dual upload (CCD + EDGE); coordinates from EDGE at ingestion
+- CCD: LEA directory format; EDGE: Public School District File (extract CSV from ZIP)
+- Join key: LEAID (NCES district identifier)
 - Idempotency: same NCES id across uploads—overwrite or merge per config
 - Large files (thousands of rows) must process async (pg-boss)
+- Districts not in EDGE: leave latitude/longitude NULL; optional fallback geocoding script later
 
 ## Verification
 
 ```bash
-# Upload valid CCD CSV
-curl -X POST -F "file=@ccd-districts.csv" /api/admin/ingestion/upload
-# Expect 202 + job_id; job processes districts async
+# Upload valid CCD + EDGE
+curl -X POST -F "ccd_file=@ccd-lea.csv" -F "edge_file=@EDGE_GEOCODE_PUBLICLEA_2425.csv" /api/admin/ingestion/upload
+# Expect 202 + job_id; job processes districts async; coordinates populated from EDGE
+
+# Upload with missing file
+curl -X POST -F "ccd_file=@ccd-lea.csv" /api/admin/ingestion/upload
+# Expect 400 (edge_file required)
 
 # Upload invalid file
-curl -X POST -F "file=@bad.csv" /api/admin/ingestion/upload
+curl -X POST -F "ccd_file=@bad.csv" -F "edge_file=@edge.csv" /api/admin/ingestion/upload
 # Expect 400 with validation errors
 ```
 

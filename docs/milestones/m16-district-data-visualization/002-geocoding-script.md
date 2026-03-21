@@ -1,8 +1,8 @@
-# Task 002: Geocoding Script
+# Task 002: Geocoding Script (Fallback)
 
 ## Goal
 
-Implement a script that populates `latitude`, `longitude`, and `geocoded_at` for district candidates using Nominatim (OpenStreetMap), with rate limiting and idempotency.
+Implement a **fallback** script that populates `latitude`, `longitude`, and `geocoded_at` for district candidates that lack coordinates (e.g., not in EDGE file or ingested before dual-upload). Uses Nominatim (OpenStreetMap), with rate limiting and idempotency. **Primary** coordinates come from EDGE file at dual upload.
 
 ## Deliverables
 
@@ -17,7 +17,8 @@ Implement a script that populates `latitude`, `longitude`, and `geocoded_at` for
 
 ## Notes
 
-- PRD §8.2, §9.5: Nominatim recommended; rate limit; idempotent; log failures
+- PRD §8.2, §9.5: Primary = EDGE at upload; this script is fallback for unmatched districts
+- Nominatim: rate limit; idempotent; log failures
 - Implementation plan Phase 11.1
 - Query format: `{district name}, {state}, USA` (e.g. "Los Angeles Unified School District, CA, USA")
 - Take first result from Nominatim response; validate lat/lng in valid ranges

@@ -13,6 +13,8 @@
     "backend:build": "npm run build --workspace=backend",
     "frontend:build": "npm run build --workspace=frontend",
     "migrate": "npm run migrate --workspace=backend",
-    "seed:all": "npm run seed:attributes --workspace=backend && npm run ingest:districts --workspace=backend && npm run seed:demo --workspace=backend"
+    "seed:all": "npm run seed:attributes --workspace=backend && npm run ingest:districts --workspace=backend && npm run seed:demo --workspace=backend",
+    "test": "npm run test --workspace=backend",
+    "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend"
   }
 }

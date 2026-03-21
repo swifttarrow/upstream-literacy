@@ -1,0 +1,22 @@
+# Task 004: Ingestion Console RBAC
+
+## Goal
+
+Enforce role-based access so only moderators and admins can access the ingestion console and related endpoints.
+
+## Deliverables
+
+- [ ] Middleware or route guard: require `platform_role IN ('moderator', 'admin')` for `/admin/ingestion/*`
+- [ ] Reuse or extend existing `requireAdmin` if moderator should also pass (or add `requireModerator`)
+- [ ] Document permissions: moderator can view, preview, trigger ingest, edit; admin has all + configure, ingest-all
+- [ ] 403 response with clear message for unauthorized roles
+
+## Notes
+
+- PRD §13: Moderator and Admin permissions
+- Existing `requireAdmin` may need extension for moderator access to ingestion (admin-only for some actions)
+
+## Verification
+
+- Non-moderator user receives 403 on GET /admin/ingestion/candidates
+- Moderator receives 200

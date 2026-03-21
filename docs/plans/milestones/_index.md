@@ -16,6 +16,11 @@
 | 8 | [m8-notifications](./m8-notifications/) | Pending |
 | 9 | [m9-ai-features-user-scoped](./m9-ai-features-user-scoped/) | Pending |
 | 10 | [m10-frontend-polish](./m10-frontend-polish/) | Pending |
+| 11 | [m11-ingestion-console-foundation](./m11-ingestion-console-foundation/) | Pending |
+| 12 | [m12-ingestion-dashboard-candidates](./m12-ingestion-dashboard-candidates/) | Pending |
+| 13 | [m13-ingestion-preview-and-ingest-flow](./m13-ingestion-preview-and-ingest-flow/) | Pending |
+| 14 | [m14-ingestion-errors-and-data-quality](./m14-ingestion-errors-and-data-quality/) | Pending |
+| 15 | [m15-ingestion-editing-and-audit](./m15-ingestion-editing-and-audit/) | Pending |
 
 ## Dependencies
 
@@ -30,11 +35,19 @@ m1 (Foundation)
         → m8 (Notifications)
         → m9 (AI) — can parallel with m8
   → m10 (Frontend) — can start after m2, iterate each phase
+
+m3 (Ingestion)
+  → m11 (Ingestion Console Foundation) — real NCES data, 100 districts
+    → m12 (Ingestion Dashboard & Candidates UI)
+      → m13 (Preview & Ingest Flow)
+        → m14 (Errors & Data Quality)
+          → m15 (Editing & Audit)
 ```
 
 ## Quick Links
 
 - [Implementation Plan](../../implementation-plan.md)
 - [PRD](../../prds/base.md)
+- [District Data Ingestion PRD](../../prds/district-data-ingestion.md)
 - [DB Schema](../../db-schema.md)
 - [Developer Log](../../developer-log.md)

@@ -27,6 +27,7 @@ const SQL_FILE_ORDER = [
   '08_moderation.sql',
   '09_audit_notifications_ai.sql',
   '10_triggers.sql',
+  '11_ingestion_console.sql',
 ];
 
 async function migrate() {

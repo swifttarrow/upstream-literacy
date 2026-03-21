@@ -12,7 +12,8 @@
     "migrate": "tsx scripts/migrate.ts",
     "seed:attributes": "tsx scripts/seed-attributes.ts",
     "ingest:districts": "tsx scripts/ingest-districts.ts",
-    "seed:demo": "tsx scripts/seed-demo.ts"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:district-candidates": "tsx scripts/seed-district-candidates.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

@@ -35,6 +35,6 @@ m1 (Foundation)
 ## Quick Links
 
 - [Implementation Plan](../../implementation-plan.md)
-- [PRD](../../prd.md)
+- [PRD](../../prds/base.md)
 - [DB Schema](../../db-schema.md)
 - [Developer Log](../../developer-log.md)

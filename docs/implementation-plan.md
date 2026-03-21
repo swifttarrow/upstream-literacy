@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implementation plan for the District Community Matching Platform per [prd.md](prd.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations.
+Implementation plan for the District Community Matching Platform per [docs/prds/base.md](prds/base.md). The platform enables school district staff to discover peers facing similar challenges, connect via structured matching, and collaborate through real-time messaging and small-group conversations.
 
 ## Current State Analysis
 
@@ -455,7 +455,7 @@ Phase 10 (Frontend) — can start after Phase 2, iterate each phase
 
 ## References
 
-- PRD: `prd.md`
+- PRD: `docs/prds/base.md`
 - Schema: `docs/db-schema.md`, `schema/*.sql`
 - Research / decisions: `developer-log.md`
 - Plan prompt: `agent/prompts/plan.md`

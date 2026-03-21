@@ -1,12 +1,12 @@
 # PostgreSQL schema — MVP (from PRD)
 
-Generated using `agent/prompts/modeling.md` against `prd.md`.
+Generated using `agent/prompts/modeling.md` against `docs/prds/base.md`.
 
 ---
 
 ## 1. PRD source used
 
-- **File:** `prd.md` (root of this repo)
+- **File:** `docs/prds/base.md`
 - **Assumptions extracted:** Modular monolith, Postgres, identity + districts + taxonomy + matching + connections + conversations + moderation + notifications + user-scoped AI; no ML graph, no public feed; groups max 8 from connected users only; soft gate for messaging (district + primary problem); seeded/demo possible for cold start; moderation with metadata-for-all / content-only-when-reported is primarily an **application authorization** concern, not a column-per-row visibility model in the DB.
 
 ---

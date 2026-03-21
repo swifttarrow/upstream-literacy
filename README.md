@@ -2,7 +2,7 @@
 
 A community-driven platform for school district staff to discover, connect, and collaborate with peers facing similar challenges.
 
-See [prd.md](./prd.md) for the full product requirements document.
+See [docs/prds/base.md](./docs/prds/base.md) for the full product requirements document.
 
 ---
 

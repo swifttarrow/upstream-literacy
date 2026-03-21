@@ -14,7 +14,7 @@ Takes the PRD and all milestones/tasks, and generates a comprehensive list of us
 
 ## Input
 
-1. **PRD** — `docs/prd.md` (users, core jobs, functional requirements 8.1–8.11, MVP scope)
+1. **PRD** — `docs/prds/base.md` (users, core jobs, functional requirements 8.1–8.11, MVP scope)
 2. **Milestones** — `docs/plans/milestones/` (all README.md files and task files)
 
 Read the PRD fully, then every milestone README and every task file. Do not skip any.
@@ -164,7 +164,7 @@ For each user story, add:
 
 Attach this prompt and the inputs, then:
 
-> Generate exhaustive user stories from @docs/prd.md and @docs/plans/milestones/
+> Generate exhaustive user stories from @docs/prds/base.md and @docs/plans/milestones/
 
 Or:
 

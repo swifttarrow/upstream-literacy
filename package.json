@@ -1,0 +1,18 @@
+{
+  "name": "upstream-literacy",
+  "version": "1.0.0",
+  "description": "District Community Matching Platform — root workspace",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "backend:dev": "npm run dev --workspace=backend",
+    "frontend:dev": "npm run dev --workspace=frontend",
+    "backend:build": "npm run build --workspace=backend",
+    "frontend:build": "npm run build --workspace=frontend",
+    "migrate": "npm run migrate --workspace=backend",
+    "seed:all": "npm run seed:attributes --workspace=backend && npm run ingest:districts --workspace=backend && npm run seed:demo --workspace=backend"
+  }
+}

@@ -309,6 +309,15 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** Store session ID in HttpOnly cookie; session row in DB (or Redis if added later); lookup on each authenticated request; logout deletes session server-side.
 **Owner:** Developer
 
+### [2026-03-21] Auth implementation uses JWT (Bearer token)
+
+**Context:** Original decision favored cookie-based sessions; implementation diverged.
+**Options considered:** (A) Migrate to cookies per original decision vs (B) document JWT as implementation choice.
+**Decision:** Document that MVP implementation uses JWT with Bearer token stored in localStorage.
+**Rationale:** JWT simplifies SPA + proxy setup; @fastify/jwt already in use; no session table required; can migrate to cookies later if revocation or XSS hardening is needed.
+**Impact:** Login returns `token`; frontend stores in localStorage and sends `Authorization: Bearer <token>`; middleware validates JWT. Document for future maintainers; cookie migration remains an option.
+**Owner:** Developer
+
 ### [2026-03-20] Membership uses email verification + auto-approval
 
 **Context:** PRD requires membership approval/verification; options included manual admin approval, auto-approve, or email verification.

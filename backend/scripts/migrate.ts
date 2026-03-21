@@ -28,6 +28,7 @@ const SQL_FILE_ORDER = [
   '09_audit_notifications_ai.sql',
   '10_triggers.sql',
   '11_ingestion_console.sql',
+  '12_district_candidates_geocode.sql',
 ];
 
 async function migrate() {

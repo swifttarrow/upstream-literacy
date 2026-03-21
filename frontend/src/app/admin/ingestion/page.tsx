@@ -3,9 +3,12 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { api, ApiError } from '@/lib/api';
 import { getUser, isAuthenticated } from '@/lib/auth';
 import NavBar from '@/components/NavBar';
+
+const IngestionMap = dynamic(() => import('@/components/IngestionMap'), { ssr: false });
 
 interface Candidate {
   id: string;
@@ -101,6 +104,7 @@ function IngestionDashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'table' | 'map'>('table');
 
   // Filters from URL
   const [search, setSearch] = useState(searchParams.get('search') || '');
@@ -343,7 +347,43 @@ function IngestionDashboard() {
           )}
         </div>
 
-        {/* Action bar */}
+        {/* Table / Map tabs */}
+        <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('table')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === 'table'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Table
+          </button>
+          <button
+            onClick={() => setActiveTab('map')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === 'map'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Map
+          </button>
+        </div>
+
+        {/* Map view */}
+        {activeTab === 'map' && (
+          <IngestionMap
+            search={searchDebounced}
+            stateFilter={stateFilter}
+            statusFilter={statusFilter}
+            totalCandidates={pagination?.total ?? 0}
+          />
+        )}
+
+        {/* Action bar + table (table tab only) */}
+        {activeTab === 'table' && (
+        <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm text-gray-500">
             {pagination && `${pagination.total} districts`}
@@ -497,6 +537,8 @@ function IngestionDashboard() {
               </div>
             )}
           </div>
+        )}
+        </div>
         )}
       </div>
     </>

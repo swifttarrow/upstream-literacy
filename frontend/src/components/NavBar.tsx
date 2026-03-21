@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { clearToken, isAuthenticated } from '@/lib/auth';
+import { clearToken, getUser, isAuthenticated } from '@/lib/auth';
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -33,10 +33,15 @@ export default function NavBar() {
 
   if (!isAuthenticated()) return null;
 
+  const user = getUser();
+  const role = user?.platform_role as string | undefined;
+  const isModerator = role === 'admin' || role === 'moderator';
+
   const navLinks = [
     { href: '/discover', label: 'Discover' },
     { href: '/connections', label: 'Connections' },
     { href: '/conversations', label: 'Messages' },
+    ...(isModerator ? [{ href: '/admin/ingestion', label: 'Admin' }] : []),
   ];
 
   return (

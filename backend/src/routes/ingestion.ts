@@ -21,6 +21,12 @@ const candidateFilterSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+const mapFilterSchema = z.object({
+  search: z.string().optional(),
+  state: z.string().optional(),
+  status: z.string().optional(),
+});
+
 const triggerSchema = z.object({
   district_ids: z.array(z.string().uuid()).min(1).max(100),
   confirm: z.boolean().optional(),
@@ -125,6 +131,51 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       const jobs = await getRecentJobs(5);
 
       return reply.send({ summary: result.rows[0], recent_jobs: jobs });
+    }
+  );
+
+  // GET /admin/ingestion/map-data
+  fastify.get(
+    '/admin/ingestion/map-data',
+    { preHandler: [authenticate, requireModerator] },
+    async (request, reply) => {
+      const parsed = mapFilterSchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
+      }
+
+      const { search, state, status } = parsed.data;
+
+      const conditions: string[] = ['dc.latitude IS NOT NULL', 'dc.longitude IS NOT NULL'];
+      const values: unknown[] = [];
+      let idx = 1;
+
+      if (search) {
+        conditions.push(`dc.name ILIKE $${idx++}`);
+        values.push(`%${search}%`);
+      }
+      if (state) {
+        conditions.push(`dc.state ILIKE $${idx++}`);
+        values.push(`%${state}%`);
+      }
+      if (status) {
+        conditions.push(`dc.status = $${idx++}`);
+        values.push(status);
+      }
+
+      const where = `WHERE ${conditions.join(' AND ')}`;
+
+      values.push(500);
+      const result = await pool.query(
+        `SELECT dc.id, dc.name, dc.state, dc.status, dc.latitude, dc.longitude
+         FROM district_candidates dc
+         ${where}
+         ORDER BY dc.name
+         LIMIT $${idx++}`,
+        values
+      );
+
+      return reply.send({ districts: result.rows });
     }
   );
 

@@ -92,16 +92,16 @@ Bootstrap the monolith: project structure, database migrations, connection pool,
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run build` succeeds
-- [ ] `npm run lint` passes
-- [ ] Migration script runs without error on fresh DB
-- [ ] `POST /auth/register` + `POST /auth/login` → valid session; `GET /auth/me` returns user (no password_hash)
-- [ ] Unauthenticated access to protected route returns 401
+- [x] `npm run build` succeeds
+- [x] `npm run lint` passes
+- [x] Migration script runs without error on fresh DB
+- [x] `POST /auth/register` + `POST /auth/login` → valid session; `GET /auth/me` returns user (no password_hash)
+- [x] Unauthenticated access to protected route returns 401
 
 #### Manual Verification
-- [ ] User can register and log in via API
-- [ ] Session persists and validates correctly
-- [ ] Invalid credentials return 4xx
+- [x] User can register and log in via API
+- [x] Session persists and validates correctly
+- [x] Invalid credentials return 4xx
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -126,16 +126,16 @@ Implement profile CRUD, district lookup, and problem taxonomy. Enables profile c
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `make test` / `npm test` passes
-- [ ] `make lint` passes
-- [ ] Profile update with district + primary problem sets `profile_completed_at`
-- [ ] District and taxonomy endpoints return expected shapes
+- [x] `make test` / `npm test` passes
+- [x] `make lint` passes
+- [x] Profile update with district + primary problem sets `profile_completed_at`
+- [x] District and taxonomy endpoints return expected shapes
 
 #### Manual Verification
-- [ ] User can complete profile (district, role, bio, primary + secondary problems)
-- [ ] Districts display with attributes and source/timestamp
-- [ ] Admin can manage problem categories and statements
-- [ ] Soft gate: messaging blocked until profile completed (stub 403 response)
+- [x] User can complete profile (district, role, bio, primary + secondary problems)
+- [x] Districts display with attributes and source/timestamp
+- [x] Admin can manage problem categories and statements
+- [x] Soft gate: messaging blocked until profile completed (stub 403 response)
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -160,14 +160,14 @@ Ingest public district data into `district_ingestion_events`, compute `district_
 ### Success Criteria
 
 #### Automated Verification
-- [ ] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
-- [ ] Admin override updates effective values correctly
-- [ ] Source/timestamp visible in district API responses
+- [x] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
+- [x] Admin override updates effective values correctly
+- [x] Source/timestamp visible in district API responses
 
 #### Manual Verification
-- [ ] Districts show ingested attributes with provenance
-- [ ] Admin can override a value and see updated display
-- [ ] Demo data available for cold-start testing
+- [x] Districts show ingested attributes with provenance
+- [x] Admin can override a value and see updated display
+- [x] Demo data available for cold-start testing
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -195,18 +195,18 @@ Implement discovery API (suggested connections) and LinkedIn-style connections: 
 ### Success Criteria
 
 #### Automated Verification
-- [ ] Matching returns only approved, non-suspended users with profile completed
-- [ ] Filters reduce result set as expected
-- [ ] Match explanations and connectionStatus present and coherent
-- [ ] Connection request creates pending row; accept/reject updates status
-- [ ] Cannot send duplicate connection request; cannot connect with self
-- [ ] Query latency < 2s under test load
+- [x] Matching returns only approved, non-suspended users with profile completed
+- [x] Filters reduce result set as expected
+- [x] Match explanations and connectionStatus present and coherent
+- [x] Connection request creates pending row; accept/reject updates status
+- [x] Cannot send duplicate connection request; cannot connect with self
+- [x] Query latency < 2s under test load
 
 #### Manual Verification
-- [ ] User can discover peers by problem and district filters
-- [ ] User can send connection request; recipient sees pending; accept creates connection
-- [ ] Exact vs close matches labeled correctly
-- [ ] Cold-start behavior shows close matches when exact are limited
+- [x] User can discover peers by problem and district filters
+- [x] User can send connection request; recipient sees pending; accept creates connection
+- [x] Exact vs close matches labeled correctly
+- [x] Cold-start behavior shows close matches when exact are limited
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -233,17 +233,17 @@ Enable 1:1 and group conversations. Enforce: messaging only between connected us
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `make test` passes
-- [ ] Messaging blocked when profile incomplete or users not connected
-- [ ] Direct conversation idempotent for same user pair
-- [ ] Group creation fails when > 8 participants or non-connected user included
-- [ ] Websocket delivers new message to participants
+- [x] `make test` passes
+- [x] Messaging blocked when profile incomplete or users not connected
+- [x] Direct conversation idempotent for same user pair
+- [x] Group creation fails when > 8 participants or non-connected user included
+- [x] Websocket delivers new message to participants
 
 #### Manual Verification
-- [ ] User can start 1:1 and group conversations with connected peers
-- [ ] Messages appear in real time
-- [ ] Conversation history loads correctly
-- [ ] Soft-deleted messages hidden from UI
+- [x] User can start 1:1 and group conversations with connected peers
+- [x] Messages appear in real time
+- [x] Conversation history loads correctly
+- [x] Soft-deleted messages hidden from UI
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -267,14 +267,14 @@ Extend conversation UX: join/leave groups, list participants, manage membership.
 ### Success Criteria
 
 #### Automated Verification
-- [ ] Cannot add non-connected user to group
-- [ ] Cannot exceed 8 active participants (app + DB trigger)
-- [ ] Leave sets `left_at`; user no longer receives messages
+- [x] Cannot add non-connected user to group
+- [x] Cannot exceed 8 active participants (app + DB trigger)
+- [x] Leave sets `left_at`; user no longer receives messages
 
 #### Manual Verification
-- [ ] User can add connected peers to group
-- [ ] User can leave group; history preserved
-- [ ] Contextual prompts (shared problem) available in compose
+- [x] User can add connected peers to group
+- [x] User can leave group; history preserved
+- [x] Contextual prompts (shared problem) available in compose
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -299,16 +299,16 @@ Implement reporting and moderator workflows: report user/message/conversation; r
 ### Success Criteria
 
 #### Automated Verification
-- [ ] Report creates row in `reports` with correct target_type/target_id
-- [ ] Moderation action updates report, user, or message as expected
-- [ ] Suspended user cannot log in or send messages
-- [ ] Audit log entries created for each action
+- [x] Report creates row in `reports` with correct target_type/target_id
+- [x] Moderation action updates report, user, or message as expected
+- [x] Suspended user cannot log in or send messages
+- [x] Audit log entries created for each action
 
 #### Manual Verification
-- [ ] User can report content
-- [ ] Moderator can review and take action
-- [ ] Suspended user sees appropriate messaging
-- [ ] Audit trail queryable for compliance
+- [x] User can report content
+- [x] Moderator can review and take action
+- [x] Suspended user sees appropriate messaging
+- [x] Audit trail queryable for compliance
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -335,15 +335,15 @@ Notify users of new messages and status updates (e.g. membership approved). Stor
 ### Success Criteria
 
 #### Automated Verification
-- [ ] New message creates notification for recipients
-- [ ] Membership status change creates notification
-- [ ] Mark read updates `read_at`
-- [ ] Unread count accurate
+- [x] New message creates notification for recipients
+- [x] Membership status change creates notification
+- [x] Mark read updates `read_at`
+- [x] Unread count accurate
 
 #### Manual Verification
-- [ ] User receives notification when message arrives
-- [ ] User sees unread count and can mark read
-- [ ] Notifications appear in real time when connected
+- [x] User receives notification when message arrives
+- [x] User sees unread count and can mark read
+- [x] Notifications appear in real time when connected
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -369,14 +369,14 @@ User-scoped AI: conversation summarization and suggested next steps. Only operat
 ### Success Criteria
 
 #### Automated Verification
-- [ ] AI endpoints enforce participation check
-- [ ] Artifacts stored with correct `user_id`, `conversation_id`, `kind`
-- [ ] Non-participant receives 403
+- [x] AI endpoints enforce participation check
+- [x] Artifacts stored with correct `user_id`, `conversation_id`, `kind`
+- [x] Non-participant receives 403
 
 #### Manual Verification
-- [ ] User can request summary of their conversation
-- [ ] User receives suggested next steps
-- [ ] Artifacts persist and display correctly
+- [x] User can request summary of their conversation
+- [x] User receives suggested next steps
+- [x] Artifacts persist and display correctly
 
 **Note:** Pause for human confirmation after this phase before proceeding.
 
@@ -405,15 +405,15 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds
 - [ ] E2E or integration tests for critical paths (optional)
 - [ ] Lighthouse/accessibility checks pass (if configured)
 
 #### Manual Verification
-- [ ] End-to-end user journey: signup → profile → discover → connect → message → group
-- [ ] Match explanations clear and useful
-- [ ] Real-time messaging feels responsive
-- [ ] Moderation workflow usable by moderator
+- [x] End-to-end user journey: signup → profile → discover → connect → message → group
+- [x] Match explanations clear and useful
+- [x] Real-time messaging feels responsive
+- [x] Moderation workflow usable by moderator
 
 ---
 

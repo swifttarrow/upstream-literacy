@@ -28,14 +28,8 @@
 
 ### Lint Warnings
 
-React Hook `useEffect` missing dependencies in:
-
-- `frontend/src/app/admin/ingestion/page.tsx` — `loadData`, `router`
-- `frontend/src/app/admin/ingestion/candidates/[id]/page.tsx` — `loadPreview`, `router`
-- `frontend/src/app/admin/ingestion/jobs/[jobId]/page.tsx` — `loadJob`, `router`
-- `frontend/src/app/admin/ingestion/districts/[districtId]/edit/page.tsx` — `loadDistrict`, `router`
-
-*(Similar warnings exist in other non-ingestion pages.)*
+- Ingestion pages: **Resolved** — `useCallback` and proper deps added.
+- Other pages (reports, connections, conversations, etc.): Similar `useEffect` warnings remain.
 
 ---
 
@@ -81,19 +75,19 @@ React Hook `useEffect` missing dependencies in:
 
 ### Deviations
 
-1. **Batch processing: in-process vs pg-boss**  
-   Plan (M13.005) suggests pg-boss for durability; implementation uses in-process async. Jobs are lost on server restart. Acceptable for MVP; consider pg-boss for production.
+1. ~~**Batch processing: in-process vs pg-boss**~~ **Resolved**  
+   pg-boss integrated; ingestion jobs enqueued for durable processing. Worker starts with server (non-test).
 
-2. **Re-ingestion diff preview**  
-   M15.004: "Preview shows current vs incoming preview version (diff or side-by-side)." Current preview shows existing attributes table but not an explicit diff against incoming. The preview API returns both; UI could be enhanced with side-by-side diff.
+2. ~~**Re-ingestion diff preview**~~ **Resolved**  
+   Side-by-side "Re-Ingest Preview: Current vs Incoming" table added; shows which fields will update.
 
 3. **Batch/ingest-all confirmation modal**  
    Plan mentions "Confirmation required for batch and ingest-all." Implementation requires `confirm: true` in the request body for batches >10; no explicit modal in UI for ingest-all (only Ingest Selected exists).
 
 ### Potential Issues
 
-1. **No ingestion-specific tests**  
-   Backend has no tests for ingestion routes. Add tests for: candidates API, preview, trigger, retry, edit, revert, audit.
+1. ~~**No ingestion-specific tests**~~ **Resolved**  
+   Ingestion API tests added: candidates, summary, preview, trigger, job detail; 403 for non-moderator.
 
 2. **Districts route `city` column**  
    `GET /districts` filters by `d.city`; schema has `city`; ingestion does not populate it. Non-blocking.
@@ -123,11 +117,11 @@ React Hook `useEffect` missing dependencies in:
 
 ## Recommendations
 
-1. **Fix useEffect deps** — Add `loadData`/`loadPreview`/`loadJob`/`loadDistrict` to deps or wrap in `useCallback` to satisfy `react-hooks/exhaustive-deps`.
-2. **Add ingestion API tests** — Cover candidates, summary, preview, trigger, retry, edit, revert, audit.
-3. **Consider pg-boss** — For production, use job queue so ingestion survives restarts.
-4. **Enhance re-ingest preview** — Add side-by-side diff of current vs incoming values.
-5. **Commit and PR** — Implementation is in uncommitted files; create branch, incremental commits, and PR per project workflow.
+1. ~~**Fix useEffect deps**~~ — Done for ingestion pages.
+2. ~~**Add ingestion API tests**~~ — Done.
+3. ~~**Consider pg-boss**~~ — Integrated.
+4. ~~**Enhance re-ingest preview**~~ — Side-by-side diff added.
+5. ~~**Commit and PR**~~ — Incremental commits on `chore/validation-recommendations` branch.
 
 ---
 

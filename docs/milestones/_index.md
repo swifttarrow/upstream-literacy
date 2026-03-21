@@ -1,6 +1,6 @@
 # Milestones: District Community Matching Platform
 
-**Source plan:** [Implementation Plan](../../implementation-plan.md)
+**Source plan:** [Implementation Plan](../implementation-plan.md)
 
 ## Milestone Order
 
@@ -21,6 +21,7 @@
 | 13 | [m13-ingestion-preview-and-ingest-flow](./m13-ingestion-preview-and-ingest-flow/) | Complete |
 | 14 | [m14-ingestion-errors-and-data-quality](./m14-ingestion-errors-and-data-quality/) | Complete |
 | 15 | [m15-ingestion-editing-and-audit](./m15-ingestion-editing-and-audit/) | Complete |
+| 16 | [m16-district-data-visualization](./m16-district-data-visualization/) | Pending |
 
 ## Dependencies
 
@@ -42,12 +43,16 @@ m3 (Ingestion)
       → m13 (Preview & Ingest Flow)
         → m14 (Errors & Data Quality)
           → m15 (Editing & Audit)
+
+m15 (Editing & Audit)
+  → m16 (District Data Visualization) — map view with markers, geocoding
 ```
 
 ## Quick Links
 
-- [Implementation Plan](../../implementation-plan.md)
-- [PRD](../../prds/base.md)
-- [District Data Ingestion PRD](../../prds/district-data-ingestion.md)
-- [DB Schema](../../db-schema.md)
-- [Developer Log](../../developer-log.md)
+- [Implementation Plan](../implementation-plan.md)
+- [PRD](../prds/base.md)
+- [District Data Ingestion PRD](../prds/district-data-ingestion.md)
+- [District Data Visualization PRD](../prds/district-data-visualization.md)
+- [DB Schema](../db-schema.md)
+- [Developer Log](../developer-log.md)

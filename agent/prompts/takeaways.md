@@ -16,10 +16,10 @@ Generate a high-level TAKEAWAYS.md document summarizing each milestone and task,
 
 You will receive:
 
-1. **Milestone path(s)** — e.g. `docs/plans/milestones/` or specific `docs/plans/milestones/NN-milestone-slug/`
+1. **Milestone path(s)** — e.g. `docs/milestones/` or specific `docs/milestones/NN-milestone-slug/`
 2. Optional: implementation context (what was built, what worked, what didn't)
 
-If no path provided, scan `docs/plans/milestones/` and include all milestones.
+If no path provided, scan `docs/milestones/` and include all milestones.
 
 ---
 
@@ -27,7 +27,7 @@ If no path provided, scan `docs/plans/milestones/` and include all milestones.
 
 ### Step 1: Gather Context
 
-1. Read `docs/plans/milestones/_index.md` for milestone order and structure
+1. Read `docs/milestones/_index.md` for milestone order and structure
 2. For each milestone in scope:
    - Read `NN-milestone-slug/README.md` (overview, success criteria)
    - Read each task in `tasks/` (goal, deliverables, notes)

@@ -1,6 +1,6 @@
 # Generate Milestones & Tasks from Plan
 
-Takes an implementation plan and generates a structured milestone/task breakdown under `docs/plans/milestones/`.
+Takes an implementation plan and generates a structured milestone/task breakdown under `docs/milestones/`.
 
 ---
 
@@ -26,7 +26,7 @@ Read the plan completely before generating.
 ## Output Structure
 
 ```
-docs/plans/milestones/
+docs/milestones/
 ├── m1-milestone-slug/
 │   ├── README.md          # Milestone overview, success criteria, dependencies
 │   ├── 001-task-slug.md
@@ -57,13 +57,13 @@ docs/plans/milestones/
 
 For each phase in the plan:
 
-- Create `docs/plans/milestones/mN-slug/` where:
+- Create `docs/milestones/mN-slug/` where:
   - `mN` = phase number prefixed by `m`, no leading zero (m1, m2, ...)
   - `slug` = kebab-case from phase title (e.g. `project-setup-webrtc`)
 
 ### Step 3: Write Milestone README
 
-Each `docs/plans/milestones/mN-slug/README.md` must include:
+Each `docs/milestones/mN-slug/README.md` must include:
 
 ```markdown
 # Milestone N: [Phase Title]
@@ -99,7 +99,7 @@ Break each phase into **concrete, implementable tasks**. Each task should:
 - Have a clear deliverable (file created, test passing, etc.)
 - Be ordered so dependencies are respected
 
-**Task file format** — `docs/plans/milestones/mN-slug/MMM-task-slug.md`:
+**Task file format** — `docs/milestones/mN-slug/MMM-task-slug.md`:
 
 ```markdown
 # Task MMM: [Short Title]
@@ -122,7 +122,7 @@ Use `MMM` = zero-padded task number (001, 002, …) within each milestone.
 
 ### Step 5: Create Master Index
 
-Create `docs/plans/milestones/_index.md`:
+Create `docs/milestones/_index.md`:
 
 ```markdown
 # Milestones: [Plan Title]

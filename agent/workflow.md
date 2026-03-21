@@ -98,7 +98,7 @@ Attach `@agent/prompts/milestones-from-plan.md` and `@docs/plans/[your-plan].md`
 
 ### Output
 
-- **Artifact**: `docs/plans/milestones/` with:
+- **Artifact**: `docs/milestones/` with:
   - `_index.md` — master index
   - `NN-milestone-slug/README.md` — per-milestone overview
   - `NN-milestone-slug/tasks/MMM-task-slug.md` — individual tasks
@@ -126,7 +126,7 @@ claude
 /implement [milestone-id]
 ```
 
-Example: `/implement 01-project-setup-webrtc`. Claude Code reads from `docs/plans/milestones/` and executes all tasks in the milestone.
+Example: `/implement 01-project-setup-webrtc`. Claude Code reads from `docs/milestones/` and executes all tasks in the milestone.
 
 ### Output
 
@@ -216,5 +216,5 @@ In a new session: "Read docs/handoffs/[file].md and continue from the Action Ite
 |------|------|
 | Research | `docs/research/` |
 | Plans | `docs/plans/` |
-| Milestones & Tasks | `docs/plans/milestones/` |
+| Milestones & Tasks | `docs/milestones/` |
 | Handoffs | `docs/handoffs/` |

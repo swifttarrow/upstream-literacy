@@ -1,10 +1,10 @@
 ---
-description: Implement a milestone from docs/plans/milestones
+description: Implement a milestone from docs/milestones
 ---
 
 # Implement
 
-Implement a milestone from `docs/plans/milestones/`. Execute all tasks in order with verification.
+Implement a milestone from `docs/milestones/`. Execute all tasks in order with verification.
 
 ## Usage
 
@@ -13,11 +13,11 @@ implement 01-project-setup-webrtc
 implement 02-face-detection-gaze
 ```
 
-If no milestone provided, ask for one. List milestones in `docs/plans/milestones/_index.md`.
+If no milestone provided, ask for one. List milestones in `docs/milestones/_index.md`.
 
 ## Getting Started
 
-1. Resolve the milestone: `docs/plans/milestones/{id}-{name}/` → read `README.md`, enumerate tasks from `tasks/`
+1. Resolve the milestone: `docs/milestones/{id}-{name}/` → read `README.md`, enumerate tasks from `tasks/`
 2. Read each task file to implement
 3. Create a todo list to track progress
 4. Start implementing when you understand the work

@@ -8,8 +8,8 @@ Notify users of new messages and status updates (e.g. membership approved). Stor
 
 ## Dependencies
 
-- [ ] Milestone 5 (Conversations & Real-Time Messaging)
-- [ ] Milestone 4 (Connections)
+- [x] Milestone 5 (Conversations & Real-Time Messaging)
+- [x] Milestone 4 (Connections)
 
 ## Changes Required
 
@@ -27,16 +27,16 @@ Notify users of new messages and status updates (e.g. membership approved). Stor
 
 ### Automated Verification
 
-- [ ] New message creates notification for recipients
-- [ ] Connection request/accepted create notifications
-- [ ] Mark read updates read_at
-- [ ] Unread count accurate
+- [x] New message creates notification for recipients
+- [x] Connection request/accepted create notifications
+- [x] Mark read updates read_at
+- [x] Unread count accurate
 
 ### Manual Verification
 
-- [ ] User receives notification when message arrives
-- [ ] User sees unread count and can mark read
-- [ ] Notifications appear in real time when connected
+- [x] User receives notification when message arrives
+- [x] User sees unread count and can mark read
+- [x] Notifications appear in real time when connected
 
 ## Tasks
 

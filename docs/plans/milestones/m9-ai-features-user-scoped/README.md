@@ -8,7 +8,7 @@ User-scoped AI: conversation summarization and suggested next steps. Only operat
 
 ## Dependencies
 
-- [ ] Milestone 5 (Conversations & Real-Time Messaging)
+- [x] Milestone 5 (Conversations & Real-Time Messaging)
 
 ## Changes Required
 
@@ -17,23 +17,23 @@ User-scoped AI: conversation summarization and suggested next steps. Only operat
 | **Summarization** | POST /conversations/:id/summarize; call LLM with user-visible messages; store in user_ai_artifacts |
 | **Suggested actions** | POST /conversations/:id/suggest-actions; store in user_ai_artifacts |
 | **Retrieval** | GET /conversations/:id/ai-artifacts (user-scoped; verify participation) |
-| **LLM** | Integrate provider (OpenAI, Anthropic); prompt versioning in artifact metadata |
-| **Rate limiting** | Protect AI endpoints from abuse |
+| **LLM** | Integrate Anthropic claude-sonnet-4-6; prompt versioning in artifact metadata |
+| **Rate limiting** | 5/hour per user per endpoint |
 | **Scope** | Enforce: requester must be participant |
 
 ## Success Criteria
 
 ### Automated Verification
 
-- [ ] AI endpoints enforce participation check
-- [ ] Artifacts stored with correct user_id, conversation_id, kind
-- [ ] Non-participant receives 403
+- [x] AI endpoints enforce participation check
+- [x] Artifacts stored with correct user_id, conversation_id, kind
+- [x] Non-participant receives 403
 
 ### Manual Verification
 
-- [ ] User can request summary of their conversation
-- [ ] User receives suggested next steps
-- [ ] Artifacts persist and display correctly
+- [x] User can request summary of their conversation
+- [x] User receives suggested next steps
+- [x] Artifacts persist and display correctly
 
 ## Tasks
 

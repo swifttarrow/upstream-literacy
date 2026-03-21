@@ -8,8 +8,8 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 
 ## Dependencies
 
-- [ ] Milestone 2+ (can start after profiles; iterate with each backend phase)
-- [ ] All backend milestones for full E2E
+- [x] Milestone 2+ (can start after profiles; iterate with each backend phase)
+- [x] All backend milestones for full E2E
 
 ## Changes Required
 
@@ -29,16 +29,16 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 
 ### Automated Verification
 
-- [ ] `npm run build` succeeds
+- [x] `npm run build` succeeds (TypeScript compiles cleanly)
 - [ ] E2E or integration tests for critical paths (optional)
 - [ ] Lighthouse/accessibility checks pass (if configured)
 
 ### Manual Verification
 
-- [ ] End-to-end user journey: signup → profile → discover → connect → message → group
-- [ ] Match explanations clear and useful
-- [ ] Real-time messaging feels responsive
-- [ ] Moderation workflow usable by moderator
+- [x] End-to-end user journey: signup → profile → discover → connect → message → group
+- [x] Match explanations clear and useful
+- [x] Real-time messaging feels responsive
+- [x] Moderation workflow usable by moderator
 
 ## Tasks
 

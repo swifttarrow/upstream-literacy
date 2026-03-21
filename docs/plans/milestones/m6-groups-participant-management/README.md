@@ -8,7 +8,7 @@ Extend conversation UX: join/leave groups, list participants, manage membership.
 
 ## Dependencies
 
-- [ ] Milestone 5 (Conversations & Real-Time Messaging)
+- [x] Milestone 5 (Conversations & Real-Time Messaging)
 
 ## Changes Required
 
@@ -23,15 +23,15 @@ Extend conversation UX: join/leave groups, list participants, manage membership.
 
 ### Automated Verification
 
-- [ ] Cannot add non-connected user to group
-- [ ] Cannot exceed 8 active participants (app + DB trigger)
-- [ ] Leave sets left_at; user no longer receives messages
+- [x] Cannot add non-connected user to group
+- [x] Cannot exceed 8 active participants (app + DB trigger)
+- [x] Leave sets left_at; user no longer receives messages
 
 ### Manual Verification
 
-- [ ] User can add connected peers to group
-- [ ] User can leave group; history preserved
-- [ ] Contextual prompts (shared problem) available in compose
+- [x] User can add connected peers to group
+- [x] User can leave group; history preserved
+- [x] Contextual prompts (shared problem) available in compose
 
 ## Tasks
 

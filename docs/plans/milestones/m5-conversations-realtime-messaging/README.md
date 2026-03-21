@@ -8,7 +8,7 @@ Enable 1:1 and group conversations. Enforce: messaging only between connected us
 
 ## Dependencies
 
-- [ ] Milestone 4 (Discovery, Matching & Connections)
+- [x] Milestone 4 (Discovery, Matching & Connections)
 
 ## Changes Required
 
@@ -26,17 +26,17 @@ Enable 1:1 and group conversations. Enforce: messaging only between connected us
 
 ### Automated Verification
 
-- [ ] Messaging blocked when profile incomplete or users not connected
-- [ ] Direct conversation idempotent for same user pair
-- [ ] Group creation fails when > 8 participants or non-connected user included
-- [ ] Websocket delivers new message to participants
+- [x] Messaging blocked when profile incomplete or users not connected
+- [x] Direct conversation idempotent for same user pair
+- [x] Group creation fails when > 8 participants or non-connected user included
+- [x] Websocket delivers new message to participants
 
 ### Manual Verification
 
-- [ ] User can start 1:1 and group conversations with connected peers
-- [ ] Messages appear in real time
-- [ ] Conversation history loads correctly
-- [ ] Soft-deleted messages hidden from UI
+- [x] User can start 1:1 and group conversations with connected peers
+- [x] Messages appear in real time
+- [x] Conversation history loads correctly
+- [x] Soft-deleted messages hidden from UI
 
 ## Tasks
 

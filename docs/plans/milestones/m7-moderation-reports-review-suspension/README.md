@@ -8,7 +8,7 @@ Implement reporting and moderator workflows: report user/message/conversation; r
 
 ## Dependencies
 
-- [ ] Milestone 5 (Conversations & Real-Time Messaging)
+- [x] Milestone 5 (Conversations & Real-Time Messaging)
 
 ## Changes Required
 
@@ -24,17 +24,17 @@ Implement reporting and moderator workflows: report user/message/conversation; r
 
 ### Automated Verification
 
-- [ ] Report creates row in reports with correct target_type/target_id
-- [ ] Moderation action updates report, user, or message as expected
-- [ ] Suspended user cannot log in or send messages
-- [ ] Audit log entries created for each action
+- [x] Report creates row in reports with correct target_type/target_id
+- [x] Moderation action updates report, user, or message as expected
+- [x] Suspended user cannot log in or send messages
+- [x] Audit log entries created for each action
 
 ### Manual Verification
 
-- [ ] User can report content
-- [ ] Moderator can review and take action
-- [ ] Suspended user sees appropriate messaging
-- [ ] Audit trail queryable for compliance
+- [x] User can report content
+- [x] Moderator can review and take action
+- [x] Suspended user sees appropriate messaging
+- [x] Audit trail queryable for compliance
 
 ## Tasks
 

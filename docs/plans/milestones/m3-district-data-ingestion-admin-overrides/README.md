@@ -8,7 +8,7 @@ Ingest public district data into `district_ingestion_events`, compute `district_
 
 ## Dependencies
 
-- [ ] Milestone 2 (User Profiles, Districts, Taxonomy)
+- [x] Milestone 2 (User Profiles, Districts, Taxonomy)
 
 ## Changes Required
 
@@ -24,15 +24,15 @@ Ingest public district data into `district_ingestion_events`, compute `district_
 
 ### Automated Verification
 
-- [ ] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
-- [ ] Admin override updates effective values correctly
-- [ ] Source/timestamp visible in district API responses
+- [x] Ingestion job runs and populates `district_ingestion_events` and `district_effective_attribute_values`
+- [x] Admin override updates effective values correctly
+- [x] Source/timestamp visible in district API responses
 
 ### Manual Verification
 
-- [ ] Districts show ingested attributes with provenance
-- [ ] Admin can override a value and see updated display
-- [ ] Demo data available for cold-start testing
+- [x] Districts show ingested attributes with provenance
+- [x] Admin can override a value and see updated display
+- [x] Demo data available for cold-start testing
 
 ## Tasks
 

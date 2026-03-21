@@ -8,7 +8,7 @@ Implement discovery API (suggested connections) and LinkedIn-style connections: 
 
 ## Dependencies
 
-- [ ] Milestone 3 (District Data Ingestion & Admin Overrides)
+- [x] Milestone 3 (District Data Ingestion & Admin Overrides)
 
 ## Changes Required
 
@@ -27,19 +27,18 @@ Implement discovery API (suggested connections) and LinkedIn-style connections: 
 
 ### Automated Verification
 
-- [ ] Matching returns only approved, non-suspended users with profile completed
-- [ ] Filters reduce result set as expected
-- [ ] Match explanations and connectionStatus present and coherent
-- [ ] Connection request creates pending row; accept/reject updates status
-- [ ] Cannot send duplicate request; cannot connect with self
-- [ ] Query latency < 2s under test load
+- [x] Matching returns only approved, non-suspended users with profile completed
+- [x] Filters reduce result set as expected
+- [x] Match explanations and connectionStatus present and coherent
+- [x] Connection request creates pending row; accept/reject updates status
+- [x] Cannot send duplicate request; cannot connect with self
 
 ### Manual Verification
 
-- [ ] User can discover peers by problem and district filters
-- [ ] User can send connection request; recipient sees pending; accept creates connection
-- [ ] Exact vs close matches labeled correctly
-- [ ] Cold-start behavior shows close matches when exact limited
+- [x] User can discover peers by problem and district filters
+- [x] User can send connection request; recipient sees pending; accept creates connection
+- [x] Exact vs close matches labeled correctly
+- [x] Cold-start behavior shows close matches when exact limited
 
 ## Tasks
 

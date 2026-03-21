@@ -8,7 +8,7 @@ Bootstrap the monolith: project structure, database migrations, connection pool,
 
 ## Dependencies
 
-- [ ] None (first milestone)
+- [x] None (first milestone)
 
 ## Changes Required
 
@@ -25,17 +25,17 @@ Bootstrap the monolith: project structure, database migrations, connection pool,
 
 ### Automated Verification
 
-- [ ] `npm run build` succeeds
-- [ ] `npm run lint` passes
-- [ ] Migration script runs without error on fresh DB
-- [ ] `POST /auth/register` + `POST /auth/login` → valid session; `GET /auth/me` returns user (no password_hash)
-- [ ] Unauthenticated access to protected route returns 401
+- [x] `npm run build` succeeds
+- [x] `npm run lint` passes
+- [x] Migration script runs without error on fresh DB
+- [x] `POST /auth/register` + `POST /auth/login` → valid session; `GET /auth/me` returns user (no password_hash)
+- [x] Unauthenticated access to protected route returns 401
 
 ### Manual Verification
 
-- [ ] User can register and log in via API
-- [ ] Session persists and validates correctly
-- [ ] Invalid credentials return 4xx
+- [x] User can register and log in via API
+- [x] Session persists and validates correctly
+- [x] Invalid credentials return 4xx
 
 ## Tasks
 

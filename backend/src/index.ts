@@ -35,18 +35,18 @@ async function buildServer() {
   await fastify.register(fastifyWebsocket);
   await fastify.register(jwtPlugin);
 
-  // Routes
-  await fastify.register(healthRoutes);
-  await fastify.register(authRoutes);
-  await fastify.register(usersRoutes);
-  await fastify.register(districtsRoutes);
-  await fastify.register(taxonomyRoutes);
-  await fastify.register(discoveryRoutes);
-  await fastify.register(connectionsRoutes);
-  await fastify.register(conversationsRoutes);
-  await fastify.register(moderationRoutes);
-  await fastify.register(notificationsRoutes);
-  await fastify.register(aiRoutes);
+  // Routes (prefix /api so Next.js proxy /api/:path* forwards correctly)
+  await fastify.register(healthRoutes); // /health stays at root for load balancers
+  await fastify.register(authRoutes, { prefix: '/api' });
+  await fastify.register(usersRoutes, { prefix: '/api' });
+  await fastify.register(districtsRoutes, { prefix: '/api' });
+  await fastify.register(taxonomyRoutes, { prefix: '/api' });
+  await fastify.register(discoveryRoutes, { prefix: '/api' });
+  await fastify.register(connectionsRoutes, { prefix: '/api' });
+  await fastify.register(conversationsRoutes, { prefix: '/api' });
+  await fastify.register(moderationRoutes, { prefix: '/api' });
+  await fastify.register(notificationsRoutes, { prefix: '/api' });
+  await fastify.register(aiRoutes, { prefix: '/api' });
 
   return fastify;
 }

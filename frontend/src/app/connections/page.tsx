@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
@@ -27,6 +27,7 @@ export default function ConnectionsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -37,29 +38,41 @@ export default function ConnectionsPage() {
   }, [tab, router]);
 
   const loadConnections = async () => {
+    const requestedTab = tab;
+    const id = ++loadIdRef.current;
     setLoading(true);
     setError('');
     try {
       const data = await api.get<{ connections: Connection[] }>(
-        `/connections?tab=${tab}`
+        `/connections?tab=${requestedTab}`
       );
-      setConnections(data.connections);
+      // Ignore stale response if user switched tabs before this completed
+      if (id === loadIdRef.current) {
+        setConnections(data.connections);
+      }
     } catch {
-      setError('Failed to load connections');
+      if (id === loadIdRef.current) {
+        setError('Failed to load connections');
+      }
     } finally {
-      setLoading(false);
+      if (id === loadIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const handleAccept = async (connectionId: string) => {
     setActionLoading(connectionId);
+    setError('');
     try {
       await api.post(`/connections/requests/${connectionId}/accept`);
-      loadConnections();
+      // Switch to Connected tab so user sees their new connection; useEffect will reload
+      setTab('connected');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
       }
+      loadConnections();
     } finally {
       setActionLoading(null);
     }

@@ -33,6 +33,8 @@ async function request<T>(
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    // Prevent stale cache for GET; connections/discovery tabs need fresh data
+    cache: options.method === undefined || options.method === 'GET' ? 'no-store' : undefined,
   });
 
   if (!response.ok) {

@@ -21,8 +21,8 @@ interface IngestionMapProps {
   stateFilter: string;
   statusFilter: string;
   districtSizeFilter?: string;
-  enrollmentMin?: string;
-  enrollmentMax?: string;
+  localeTypeFilter?: string;
+  localeSubtypeFilter?: string;
 }
 
 // Status → hex color mapping (matches dashboard badge colors)
@@ -54,7 +54,7 @@ function createColoredIcon(L: typeof import('leaflet'), color: string) {
   });
 }
 
-export default function IngestionMap({ search, stateFilter, statusFilter, districtSizeFilter = '', enrollmentMin = '', enrollmentMax = '' }: IngestionMapProps) {
+export default function IngestionMap({ search, stateFilter, statusFilter, districtSizeFilter = '', localeTypeFilter = '', localeSubtypeFilter = '' }: IngestionMapProps) {
   const router = useRouter();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<import('leaflet').Map | null>(null);
@@ -108,8 +108,8 @@ export default function IngestionMap({ search, stateFilter, statusFilter, distri
         if (stateFilter) params.set('state', stateFilter);
         if (statusFilter) params.set('status', statusFilter);
         if (districtSizeFilter) params.set('district_size', districtSizeFilter);
-        if (enrollmentMin) params.set('enrollment_min', enrollmentMin);
-        if (enrollmentMax) params.set('enrollment_max', enrollmentMax);
+        if (localeTypeFilter) params.set('locale_type', localeTypeFilter);
+        if (localeSubtypeFilter) params.set('locale_subtype', localeSubtypeFilter);
 
         const data = await api.get<{ districts: MapDistrict[] }>(
           `/admin/ingestion/map-data?${params}`
@@ -126,7 +126,7 @@ export default function IngestionMap({ search, stateFilter, statusFilter, distri
 
     fetchMapData();
     return () => controller.abort();
-  }, [search, stateFilter, statusFilter, districtSizeFilter, enrollmentMin, enrollmentMax]);
+  }, [search, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter]);
 
   // Update markers when map and data are ready
   useEffect(() => {

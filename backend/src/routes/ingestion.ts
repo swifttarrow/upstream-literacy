@@ -203,8 +203,8 @@ const candidateFilterSchema = z.object({
   state: z.string().optional(),
   status: z.string().optional(),
   district_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
-  enrollment_min: z.coerce.number().int().min(0).optional(),
-  enrollment_max: z.coerce.number().int().min(0).optional(),
+  locale_type: z.enum(['City', 'Suburb', 'Town', 'Rural']).optional(),
+  locale_subtype: z.enum(['Large', 'Midsize', 'Small', 'Fringe', 'Distant', 'Remote']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -214,8 +214,8 @@ const mapFilterSchema = z.object({
   state: z.string().optional(),
   status: z.string().optional(),
   district_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
-  enrollment_min: z.coerce.number().int().min(0).optional(),
-  enrollment_max: z.coerce.number().int().min(0).optional(),
+  locale_type: z.enum(['City', 'Suburb', 'Town', 'Rural']).optional(),
+  locale_subtype: z.enum(['Large', 'Midsize', 'Small', 'Fringe', 'Distant', 'Remote']).optional(),
 });
 
 const triggerSchema = z.object({
@@ -255,7 +255,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, district_size, enrollment_min, enrollment_max, page, limit } = parsed.data;
+      const { search, state, status, district_size, locale_type, locale_subtype, page, limit } = parsed.data;
       const offset = (page - 1) * limit;
 
       const conditions: string[] = [];
@@ -278,13 +278,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         conditions.push(`dc.district_size = $${idx++}`);
         values.push(district_size);
       }
-      if (enrollment_min != null) {
-        conditions.push(`dc.enrollment >= $${idx++}`);
-        values.push(enrollment_min);
+      if (locale_type) {
+        conditions.push(`dc.locale_type = $${idx++}`);
+        values.push(locale_type);
       }
-      if (enrollment_max != null) {
-        conditions.push(`dc.enrollment <= $${idx++}`);
-        values.push(enrollment_max);
+      if (locale_subtype) {
+        conditions.push(`dc.locale_subtype = $${idx++}`);
+        values.push(locale_subtype);
       }
 
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -351,7 +351,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, district_size, enrollment_min, enrollment_max } = parsed.data;
+      const { search, state, status, district_size, locale_type, locale_subtype } = parsed.data;
 
       const conditions: string[] = ['dc.latitude IS NOT NULL', 'dc.longitude IS NOT NULL'];
       const values: unknown[] = [];
@@ -373,13 +373,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         conditions.push(`dc.district_size = $${idx++}`);
         values.push(district_size);
       }
-      if (enrollment_min != null) {
-        conditions.push(`dc.enrollment >= $${idx++}`);
-        values.push(enrollment_min);
+      if (locale_type) {
+        conditions.push(`dc.locale_type = $${idx++}`);
+        values.push(locale_type);
       }
-      if (enrollment_max != null) {
-        conditions.push(`dc.enrollment <= $${idx++}`);
-        values.push(enrollment_max);
+      if (locale_subtype) {
+        conditions.push(`dc.locale_subtype = $${idx++}`);
+        values.push(locale_subtype);
       }
 
       const where = `WHERE ${conditions.join(' AND ')}`;

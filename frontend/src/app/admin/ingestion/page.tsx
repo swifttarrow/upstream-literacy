@@ -121,14 +121,17 @@ function IngestionDashboard() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Filters from URL (state, district_size, enrollment align with discovery matching criteria)
+  // Filters from URL
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [stateFilter, setStateFilter] = useState(searchParams.get('state') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [districtSizeFilter, setDistrictTypeFilter] = useState(searchParams.get('district_size') || '');
-  const [enrollmentMin, setEnrollmentMin] = useState(searchParams.get('enrollment_min') || '');
-  const [enrollmentMax, setEnrollmentMax] = useState(searchParams.get('enrollment_max') || '');
+  const [localeTypeFilter, setLocaleTypeFilter] = useState(searchParams.get('locale_type') || '');
+  const [localeSubtypeFilter, setLocaleSubtypeFilter] = useState(searchParams.get('locale_subtype') || '');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
+
+  const LOCALE_TYPES = ['City', 'Suburb', 'Town', 'Rural'];
+  const LOCALE_SUBTYPES = ['Large', 'Midsize', 'Small', 'Fringe', 'Distant', 'Remote'];
 
   // Debounce search
   const [searchDebounced, setSearchDebounced] = useState(search);
@@ -143,8 +146,8 @@ function IngestionDashboard() {
     if (params.state) sp.set('state', params.state);
     if (params.status) sp.set('status', params.status);
     if (params.district_size) sp.set('district_size', params.district_size);
-    if (params.enrollment_min) sp.set('enrollment_min', params.enrollment_min);
-    if (params.enrollment_max) sp.set('enrollment_max', params.enrollment_max);
+    if (params.locale_type) sp.set('locale_type', params.locale_type);
+    if (params.locale_subtype) sp.set('locale_subtype', params.locale_subtype);
     if (params.page && params.page !== '1') sp.set('page', params.page);
     const query = sp.toString();
     router.replace(`/admin/ingestion${query ? '?' + query : ''}`, { scroll: false });
@@ -160,8 +163,8 @@ function IngestionDashboard() {
       if (stateFilter) params.set('state', stateFilter);
       if (statusFilter) params.set('status', statusFilter);
       if (districtSizeFilter) params.set('district_size', districtSizeFilter);
-      if (enrollmentMin) params.set('enrollment_min', enrollmentMin);
-      if (enrollmentMax) params.set('enrollment_max', enrollmentMax);
+      if (localeTypeFilter) params.set('locale_type', localeTypeFilter);
+      if (localeSubtypeFilter) params.set('locale_subtype', localeSubtypeFilter);
       params.set('page', String(page));
       params.set('limit', '20');
 
@@ -186,7 +189,7 @@ function IngestionDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, enrollmentMin, enrollmentMax, page, router]);
+  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter, page, router]);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push('/login'); return; }
@@ -293,21 +296,20 @@ function IngestionDashboard() {
   };
 
   const handleFilterChange = (key: string, value: string) => {
-    const newPage = 1;
+    setPage(1);
     if (key === 'search') setSearch(value);
     if (key === 'state') setStateFilter(value);
     if (key === 'status') setStatusFilter(value);
     if (key === 'district_size') setDistrictTypeFilter(value);
-    if (key === 'enrollment_min') setEnrollmentMin(value);
-    if (key === 'enrollment_max') setEnrollmentMax(value);
-    setPage(newPage);
+    if (key === 'locale_type') setLocaleTypeFilter(value);
+    if (key === 'locale_subtype') setLocaleSubtypeFilter(value);
     updateUrl({
       search: key === 'search' ? value : search,
       state: key === 'state' ? value : stateFilter,
       status: key === 'status' ? value : statusFilter,
       district_size: key === 'district_size' ? value : districtSizeFilter,
-      enrollment_min: key === 'enrollment_min' ? value : enrollmentMin,
-      enrollment_max: key === 'enrollment_max' ? value : enrollmentMax,
+      locale_type: key === 'locale_type' ? value : localeTypeFilter,
+      locale_subtype: key === 'locale_subtype' ? value : localeSubtypeFilter,
       page: '1',
     });
   };
@@ -613,9 +615,9 @@ function IngestionDashboard() {
           </div>
         )}
 
-        {/* Filters — search + matching criteria (state, district_size, enrollment align with discovery) */}
+        {/* Filters — search + matching criteria */}
         <div className="card mb-4 space-y-3">
-          <p className="text-xs text-gray-500">Search &amp; matching criteria (for sanity-check)</p>
+          <p className="text-xs text-gray-500">Search &amp; matching criteria</p>
           <div className="flex flex-wrap items-center gap-3">
             <input
               type="text"
@@ -629,8 +631,8 @@ function IngestionDashboard() {
             <select
               value={stateFilter}
               onChange={(e) => handleFilterChange('state', e.target.value)}
-              className="input-field w-32"
-              title="State (state_region in matching)"
+              className="input-field !w-auto min-w-[11rem] flex-none"
+              title="State"
             >
               <option value="">All states</option>
               {US_STATES.map((s) => (
@@ -638,35 +640,50 @@ function IngestionDashboard() {
               ))}
             </select>
             <select
+              value={statusFilter}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="input-field !w-auto min-w-[11rem] flex-none"
+              title="Status"
+            >
+              <option value="">All statuses</option>
+              {Object.entries(STATUS_LABELS).map(([k, label]) => (
+                <option key={k} value={k}>{label}</option>
+              ))}
+            </select>
+            <select
               value={districtSizeFilter}
               onChange={(e) => handleFilterChange('district_size', e.target.value)}
-              className="input-field w-28"
-              title="District size (enrollment-based: Small &lt;2,500, Medium 2,500–10K, Large 10K–25K, XL 25K+)"
+              className="input-field !w-auto min-w-[12rem] flex-none"
+              title="District size (enrollment-based)"
             >
-              <option value="">All sizes</option>
+              <option value="">All district sizes</option>
               <option value="small">Small (&lt;2,500)</option>
               <option value="medium">Medium (2,500–10K)</option>
               <option value="large">Large (10K–25K)</option>
               <option value="xl">XL (25K+)</option>
             </select>
-            <input
-              type="number"
-              placeholder="Min enroll"
-              value={enrollmentMin}
-              onChange={(e) => handleFilterChange('enrollment_min', e.target.value)}
-              className="input-field w-24"
-              min={0}
-              title="Minimum enrollment"
-            />
-            <input
-              type="number"
-              placeholder="Max enroll"
-              value={enrollmentMax}
-              onChange={(e) => handleFilterChange('enrollment_max', e.target.value)}
-              className="input-field w-24"
-              min={0}
-              title="Maximum enrollment"
-            />
+            <select
+              value={localeTypeFilter}
+              onChange={(e) => handleFilterChange('locale_type', e.target.value)}
+              className="input-field !w-auto min-w-[11rem] flex-none"
+              title="Locale type (City, Suburb, Town, Rural)"
+            >
+              <option value="">All locale types</option>
+              {LOCALE_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <select
+              value={localeSubtypeFilter}
+              onChange={(e) => handleFilterChange('locale_subtype', e.target.value)}
+              className="input-field !w-auto min-w-[11rem] flex-none"
+              title="Locale subtype"
+            >
+              <option value="">All locale subtypes</option>
+              {LOCALE_SUBTYPES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
             {hasFailed && (
               <button
                 onClick={() => handleFilterChange('status', 'failed')}
@@ -675,25 +692,17 @@ function IngestionDashboard() {
                 View Failed
               </button>
             )}
-            {hasWarnings && (
-              <button
-                onClick={() => handleFilterChange('status', 'ingested_with_warnings')}
-                className="btn-secondary text-sm py-1.5 text-orange-700 border-orange-200 hover:bg-orange-50"
-              >
-                View Warnings
-              </button>
-            )}
-            {(search || stateFilter || statusFilter || districtSizeFilter || enrollmentMin || enrollmentMax) && (
+            {(search || stateFilter || statusFilter || districtSizeFilter || localeTypeFilter || localeSubtypeFilter) && (
               <button
                 onClick={() => {
                   setSearch('');
                   setStateFilter('');
                   setStatusFilter('');
                   setDistrictTypeFilter('');
-                  setEnrollmentMin('');
-                  setEnrollmentMax('');
+                  setLocaleTypeFilter('');
+                  setLocaleSubtypeFilter('');
                   setPage(1);
-                  updateUrl({ search: '', state: '', status: '', district_size: '', enrollment_min: '', enrollment_max: '', page: '1' });
+                  updateUrl({ search: '', state: '', status: '', district_size: '', locale_type: '', locale_subtype: '', page: '1' });
                 }}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
@@ -734,8 +743,8 @@ function IngestionDashboard() {
             stateFilter={stateFilter}
             statusFilter={statusFilter}
             districtSizeFilter={districtSizeFilter}
-            enrollmentMin={enrollmentMin}
-            enrollmentMax={enrollmentMax}
+            localeTypeFilter={localeTypeFilter}
+            localeSubtypeFilter={localeSubtypeFilter}
           />
         )}
 
@@ -777,7 +786,7 @@ function IngestionDashboard() {
         ) : candidates.length === 0 ? (
           <div className="card text-center py-12">
             <p className="text-gray-500">
-              {pagination?.total === 0 && !search && !stateFilter && !statusFilter && !districtSizeFilter && !enrollmentMin && !enrollmentMax
+              {pagination?.total === 0 && !search && !stateFilter && !statusFilter && !districtSizeFilter && !localeTypeFilter && !localeSubtypeFilter
                 ? 'No district data yet. Click "Upload NCES Data" to get started.'
                 : 'No districts found'}
             </p>
@@ -790,6 +799,7 @@ function IngestionDashboard() {
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">District Name</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-20">State</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 w-24">Size</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-32">Locale</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-28">NCES ID</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-28">Enrollment</th>
@@ -821,6 +831,9 @@ function IngestionDashboard() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{candidate.state}</td>
+                      <td className="px-4 py-3 text-gray-600 text-sm">
+                        {candidate.district_size === 'xl' ? 'XL' : candidate.district_size.replace(/^./, (c) => c.toUpperCase())}
+                      </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
                         {[candidate.locale_type, candidate.locale_subtype].filter(Boolean).join(' ') || '—'}
                       </td>
@@ -856,14 +869,14 @@ function IngestionDashboard() {
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setPage(page - 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_size: districtSizeFilter, enrollment_min: enrollmentMin, enrollment_max: enrollmentMax, page: String(page - 1) }); }}
+                    onClick={() => { setPage(page - 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_size: districtSizeFilter, locale_type: localeTypeFilter, locale_subtype: localeSubtypeFilter, page: String(page - 1) }); }}
                     disabled={page <= 1}
                     className="btn-secondary text-xs py-1 px-2 disabled:opacity-40"
                   >
                     Prev
                   </button>
                   <button
-                    onClick={() => { setPage(page + 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_size: districtSizeFilter, enrollment_min: enrollmentMin, enrollment_max: enrollmentMax, page: String(page + 1) }); }}
+                    onClick={() => { setPage(page + 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_size: districtSizeFilter, locale_type: localeTypeFilter, locale_subtype: localeSubtypeFilter, page: String(page + 1) }); }}
                     disabled={page >= pagination.pages}
                     className="btn-secondary text-xs py-1 px-2 disabled:opacity-40"
                   >

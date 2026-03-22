@@ -5,13 +5,25 @@ CREATE TABLE district_candidates (
   nces_district_id text UNIQUE NOT NULL,
   name text NOT NULL,
   state text NOT NULL,
-  district_type text NOT NULL, -- renamed to district_size in migration 17; small|medium|large|xl|unknown (enrollment-based)
+  district_size text NOT NULL, -- small|medium|large|xl|unknown (enrollment-based)
   status text NOT NULL DEFAULT 'not_ingested', -- not_ingested|ready_to_ingest|in_progress|ingested|ingested_with_warnings|failed
   district_id uuid REFERENCES districts (id) ON DELETE SET NULL, -- populated after ingestion
   missing_data_indicator boolean NOT NULL DEFAULT false,
   last_refresh_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  -- Geocode (from EDGE file)
+  latitude numeric(9,6),
+  longitude numeric(9,6),
+  geocoded_at timestamptz,
+  -- NCES CCD
+  enrollment int,
+  nces_year text,
+  -- Locale (from EDGE LOCALE column)
+  locale_code text,
+  locale_type text,
+  locale_subtype text,
+  locale_size text
 );
 
 CREATE INDEX idx_district_candidates_state ON district_candidates (state);
@@ -65,3 +77,11 @@ CREATE TABLE district_ingestion_errors (
 
 CREATE INDEX idx_ingestion_errors_job ON district_ingestion_errors (job_id, created_at DESC);
 CREATE INDEX idx_ingestion_errors_candidate ON district_ingestion_errors (candidate_id);
+
+-- Backfill: mark already-ingested districts without coordinates as ingested_with_warnings
+UPDATE district_candidates
+SET status = 'ingested_with_warnings',
+    missing_data_indicator = true,
+    updated_at = now()
+WHERE status = 'ingested'
+  AND (latitude IS NULL OR longitude IS NULL);

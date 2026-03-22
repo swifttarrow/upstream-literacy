@@ -2,6 +2,10 @@ import * as path from 'path';
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
+import {
+  PROBLEM_STATEMENT_CATEGORIES,
+  PROBLEM_STATEMENTS,
+} from '../src/data/problem-statements.js';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -13,58 +17,6 @@ if (!DATABASE_URL) {
 
 const pool = new Pool({ connectionString: DATABASE_URL });
 
-const DEMO_CATEGORIES = [
-  { name: 'Student Achievement', slug: 'student-achievement', sort_order: 1 },
-  { name: 'Staff & Staffing', slug: 'staff-staffing', sort_order: 2 },
-  { name: 'Finance & Resources', slug: 'finance-resources', sort_order: 3 },
-  { name: 'Community & Engagement', slug: 'community-engagement', sort_order: 4 },
-];
-
-const DEMO_PROBLEMS = [
-  {
-    category_slug: 'student-achievement',
-    code: 'MATH-GAP',
-    label: 'Closing math achievement gaps',
-    description: 'Addressing persistent disparities in math performance across student subgroups',
-    sort_order: 1,
-  },
-  {
-    category_slug: 'student-achievement',
-    code: 'READ-EARLY',
-    label: 'Early literacy intervention',
-    description: 'Implementing effective early reading programs for K-3 students',
-    sort_order: 2,
-  },
-  {
-    category_slug: 'staff-staffing',
-    code: 'TEACHER-RETAIN',
-    label: 'Teacher recruitment and retention',
-    description: 'Attracting and retaining qualified teachers, especially in high-need subjects',
-    sort_order: 1,
-  },
-  {
-    category_slug: 'staff-staffing',
-    code: 'SPECIAL-ED-STAFF',
-    label: 'Special education staffing',
-    description: 'Ensuring adequate staffing for special education services',
-    sort_order: 2,
-  },
-  {
-    category_slug: 'finance-resources',
-    code: 'BUDGET-CUTS',
-    label: 'Managing budget reductions',
-    description: 'Maintaining program quality while managing funding constraints',
-    sort_order: 1,
-  },
-  {
-    category_slug: 'community-engagement',
-    code: 'FAMILY-ENGAGE',
-    label: 'Family and community engagement',
-    description: 'Building stronger connections between schools and families',
-    sort_order: 1,
-  },
-];
-
 const DEMO_USERS = [
   {
     email: 'demo.alice@springfield-usd.edu',
@@ -72,8 +24,8 @@ const DEMO_USERS = [
     professional_role: 'Superintendent',
     bio: 'Led Springfield USD for 8 years. Focused on closing achievement gaps and building strong community partnerships.',
     district_slug: 'springfield-unified',
-    primary_problem_code: 'MATH-GAP',
-    secondary_problem_codes: ['TEACHER-RETAIN', 'FAMILY-ENGAGE'],
+    primary_problem_code: 'math-achievement-gaps',
+    secondary_problem_codes: ['staff-retaining', 'strategy-family-engage'],
   },
   {
     email: 'demo.bob@riverside-rural.edu',
@@ -81,8 +33,8 @@ const DEMO_USERS = [
     professional_role: 'Curriculum Director',
     bio: 'Former classroom teacher, now focused on literacy curriculum in rural Texas. Strong advocate for bilingual programs.',
     district_slug: 'riverside-rural',
-    primary_problem_code: 'READ-EARLY',
-    secondary_problem_codes: ['MATH-GAP', 'FAMILY-ENGAGE'],
+    primary_problem_code: 'lit-early',
+    secondary_problem_codes: ['math-achievement-gaps', 'strategy-family-engage'],
   },
   {
     email: 'demo.carol@metro-heights.edu',
@@ -90,8 +42,8 @@ const DEMO_USERS = [
     professional_role: 'Assistant Superintendent',
     bio: 'Overseeing HR and operations for Metro Heights. Working on innovative teacher retention strategies.',
     district_slug: 'metro-heights',
-    primary_problem_code: 'TEACHER-RETAIN',
-    secondary_problem_codes: ['SPECIAL-ED-STAFF', 'BUDGET-CUTS'],
+    primary_problem_code: 'staff-retaining',
+    secondary_problem_codes: ['student-sped', 'strategy-budget'],
   },
   {
     email: 'demo.david@lakewood.edu',
@@ -99,8 +51,8 @@ const DEMO_USERS = [
     professional_role: 'Special Education Director',
     bio: 'Dedicated to ensuring all students with disabilities receive high-quality services and support.',
     district_slug: 'lakewood-suburban',
-    primary_problem_code: 'SPECIAL-ED-STAFF',
-    secondary_problem_codes: ['BUDGET-CUTS'],
+    primary_problem_code: 'student-sped',
+    secondary_problem_codes: ['strategy-budget'],
   },
   {
     email: 'demo.eve@mountain-view.edu',
@@ -108,8 +60,8 @@ const DEMO_USERS = [
     professional_role: 'Principal',
     bio: 'Charter school principal in Denver. Passionate about family engagement and project-based learning.',
     district_slug: 'mountain-view-charter',
-    primary_problem_code: 'FAMILY-ENGAGE',
-    secondary_problem_codes: ['READ-EARLY', 'MATH-GAP'],
+    primary_problem_code: 'strategy-family-engage',
+    secondary_problem_codes: ['lit-early', 'math-achievement-gaps'],
   },
 ];
 
@@ -120,7 +72,7 @@ async function seedDemo() {
 
     // Seed problem categories
     const categoryIds = new Map<string, string>();
-    for (const cat of DEMO_CATEGORIES) {
+    for (const cat of PROBLEM_STATEMENT_CATEGORIES) {
       const result = await client.query(
         `INSERT INTO problem_categories (name, slug, sort_order)
          VALUES ($1, $2, $3)
@@ -135,19 +87,20 @@ async function seedDemo() {
 
     // Seed problem statements
     const problemIds = new Map<string, string>();
-    for (const prob of DEMO_PROBLEMS) {
+    for (const prob of PROBLEM_STATEMENTS) {
       const categoryId = categoryIds.get(prob.category_slug);
       if (!categoryId) continue;
 
       const result = await client.query(
         `INSERT INTO problem_statements (category_id, code, label, description, status, sort_order)
-         VALUES ($1, $2, $3, $4, 'active', $5)
+         VALUES ($1, $2, $3, NULL, 'active', $4)
          ON CONFLICT (code) DO UPDATE
-           SET label = EXCLUDED.label,
+           SET category_id = EXCLUDED.category_id,
+               label = EXCLUDED.label,
                description = EXCLUDED.description,
                status = 'active'
          RETURNING id`,
-        [categoryId, prob.code, prob.label, prob.description, prob.sort_order]
+        [categoryId, prob.code, prob.label, prob.sort_order]
       );
       problemIds.set(prob.code, result.rows[0].id);
       console.log(`  Problem: ${prob.code}`);

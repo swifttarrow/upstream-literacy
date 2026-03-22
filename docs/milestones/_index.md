@@ -21,7 +21,7 @@
 | 13 | [m13-ingestion-preview-and-ingest-flow](./m13-ingestion-preview-and-ingest-flow/) | Complete |
 | 14 | [m14-ingestion-errors-and-data-quality](./m14-ingestion-errors-and-data-quality/) | Complete |
 | 15 | [m15-ingestion-editing-and-audit](./m15-ingestion-editing-and-audit/) | Complete |
-| 16 | [m16-district-data-visualization](./m16-district-data-visualization/) | Pending |
+| 16 | [m16-district-data-visualization](./m16-district-data-visualization/) | Complete |
 
 ## Dependencies
 

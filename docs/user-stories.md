@@ -479,4 +479,4 @@
 
 ## Potential Gaps
 
-- **Membership approval/verification** (PRD §8.1): User stories assume `membership_status` flow; manual verification stories for "membership approved" notification exist (US-040 type membership_status) but onboarding approval flow (admin approves pending user) is not explicitly covered in milestones. M1 sets membership_status on register—clarify if approval is manual or auto.
+(No outstanding gaps; membership is approved on registration—no admin approval step in MVP.)

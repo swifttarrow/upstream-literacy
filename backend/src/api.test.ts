@@ -360,11 +360,56 @@ describe('Ingestion API', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('GET /admin/ingestion/candidates returns data for moderator', async ({ skip }) => {
+  it('GET /admin/ingestion/candidates returns data with missing_data_indicator for moderator', async ({ skip }) => {
     if (!candidateId) skip();
     const res = await app.inject({
       method: 'GET',
       url: '/api/admin/ingestion/candidates?page=1&limit=5',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { candidates: { id: string; missing_data_indicator?: boolean }[]; pagination: { total: number } };
+    expect(Array.isArray(body.candidates)).toBe(true);
+    expect(body.pagination).toBeDefined();
+    if (body.candidates.length > 0) {
+      expect(body.candidates[0]).toHaveProperty('missing_data_indicator');
+      expect(body.candidates[0]).toHaveProperty('nces_year');
+    }
+  });
+
+  it('GET /admin/ingestion/summary returns counts and nces_years for moderator', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/summary',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { summary: Record<string, string>; recent_jobs: unknown[]; nces_years: string[] };
+    expect(body.summary).toBeDefined();
+    expect(body.summary.total).toBeDefined();
+    expect(Array.isArray(body.recent_jobs)).toBe(true);
+    expect(Array.isArray(body.nces_years)).toBe(true);
+  });
+
+  it('GET /admin/ingestion/summary scopes by nces_year when provided', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/summary?nces_year=2023-24',
+      headers: { authorization: `Bearer ${moderatorToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { summary: Record<string, string> };
+    expect(body.summary).toBeDefined();
+    expect(body.summary.total).toBeDefined();
+  });
+
+  it('GET /admin/ingestion/candidates filters by nces_year', async ({ skip }) => {
+    if (!candidateId) skip();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/candidates?page=1&limit=5&nces_year=2023-24',
       headers: { authorization: `Bearer ${moderatorToken}` },
     });
     expect(res.statusCode).toBe(200);
@@ -373,18 +418,25 @@ describe('Ingestion API', () => {
     expect(body.pagination).toBeDefined();
   });
 
-  it('GET /admin/ingestion/summary returns counts for moderator', async ({ skip }) => {
+  it('GET /admin/ingestion/map-data returns districts for moderator', async ({ skip }) => {
     if (!candidateId) skip();
     const res = await app.inject({
       method: 'GET',
-      url: '/api/admin/ingestion/summary',
+      url: '/api/admin/ingestion/map-data',
       headers: { authorization: `Bearer ${moderatorToken}` },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { summary: Record<string, string>; recent_jobs: unknown[] };
-    expect(body.summary).toBeDefined();
-    expect(body.summary.total).toBeDefined();
-    expect(Array.isArray(body.recent_jobs)).toBe(true);
+    const body = res.json() as { districts: unknown[]; total_with_coordinates?: number };
+    expect(Array.isArray(body.districts)).toBe(true);
+  });
+
+  it('GET /admin/ingestion/map-data requires moderator', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/ingestion/map-data',
+      headers: { authorization: `Bearer ${memberToken}` },
+    });
+    expect(res.statusCode).toBe(403);
   });
 
   it('GET /admin/ingestion/candidates/:id/preview returns preview for moderator', async ({ skip }) => {

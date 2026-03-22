@@ -2,14 +2,13 @@
 
 ## Goal
 
-Create notifications on new message, connection request, connection accepted, membership_status change. Insert into `notifications` table.
+Create notifications on new message, connection request, and connection accepted. Insert into `notifications` table. No admin approval flow—membership_status is approved on registration, so no membership_status change notification is needed.
 
 ## Deliverables
 
-- [ ] On new message: create notification for each other participant (type: new_message), include conversation_id, sender_id, message preview
-- [ ] On connection request: create notification for target user (type: connection_request), include requester_id
-- [ ] On connection accepted: create notification for requester (type: connection_accepted), include acceptor_id
-- [ ] On membership_status change: create notification (type: membership_status), include details
+- [x] On new message: create notification for each other participant (type: new_message), include conversation_id, sender_id, message preview
+- [x] On connection request: create notification for target user (type: connection_request), include requester_id
+- [x] On connection accepted: create notification for requester (type: connection_accepted), include acceptor_id
 - [ ] Helper or service: createNotification(userId, type, payload)
 - [ ] Ensure idempotent where appropriate (e.g. don't duplicate for same event)
 

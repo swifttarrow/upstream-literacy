@@ -2,7 +2,7 @@
 
 ## Overview
 
-Notify users of new messages and status updates (e.g. membership approved). Store in `notifications`; deliver via websocket or polling; mark read.
+Notify users of new messages and connection events. Store in `notifications`; deliver via websocket or polling; mark read. No admin approval flow—users are approved on registration.
 
 **Source:** [Implementation Plan](../../../implementation-plan.md#phase-8-notifications)
 
@@ -18,7 +18,6 @@ Notify users of new messages and status updates (e.g. membership approved). Stor
 | **Create** | On new message: notification for other participants (type new_message) |
 | **Create** | On connection request: notification for target (type connection_request) |
 | **Create** | On connection accepted: notification for requester (type connection_accepted) |
-| **Create** | On membership_status change: notification (type membership_status) |
 | **API** | GET /notifications (paginated, filter unread); PATCH /notifications/:id/read |
 | **Delivery** | Push via websocket when connected; else poll or next fetch |
 | **Background** | Optional job to batch-create notifications for offline users |

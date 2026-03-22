@@ -31,7 +31,6 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 
 - [x] `npm run build` succeeds (TypeScript compiles cleanly)
 - [ ] E2E or integration tests for critical paths (optional)
-- [ ] Lighthouse/accessibility checks pass (if configured)
 
 ### Manual Verification
 

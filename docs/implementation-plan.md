@@ -334,7 +334,7 @@ Implement reporting and moderator workflows: report user/message/conversation; r
 
 ### Overview
 
-Notify users of new messages and status updates (e.g. membership approved). Store in `notifications`; deliver via websocket or polling; mark read.
+Notify users of new messages and connection events. Store in `notifications`; deliver via websocket or polling; mark read.
 
 ### Changes Required
 
@@ -343,7 +343,6 @@ Notify users of new messages and status updates (e.g. membership approved). Stor
 | **Create** | On new message: create notification for other participants (type `new_message`) |
 | **Create** | On connection request: create notification for target (type `connection_request`) |
 | **Create** | On connection accepted: create notification for requester (type `connection_accepted`) |
-| **Create** | On membership_status change: create notification (type `membership_status`) |
 | **API** | `GET /notifications` (paginated, filter unread); `PATCH /notifications/:id/read` |
 | **Delivery** | Push via websocket when connected; else poll or next fetch |
 | **Background** | Optional job to batch-create notifications for offline users |
@@ -352,7 +351,6 @@ Notify users of new messages and status updates (e.g. membership approved). Stor
 
 #### Automated Verification
 - [x] New message creates notification for recipients
-- [x] Membership status change creates notification
 - [x] Mark read updates `read_at`
 - [x] Unread count accurate
 
@@ -424,7 +422,6 @@ Web frontend for all MVP flows: auth, profile, discovery, messaging, groups, not
 #### Automated Verification
 - [x] `npm run build` succeeds
 - [ ] E2E or integration tests for critical paths (optional)
-- [ ] Lighthouse/accessibility checks pass (if configured)
 
 #### Manual Verification
 - [x] End-to-end user journey: signup → profile → discover → connect → message → group

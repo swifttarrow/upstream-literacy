@@ -128,7 +128,9 @@ function IngestionDashboard() {
   const [districtSizeFilter, setDistrictTypeFilter] = useState(searchParams.get('district_size') || '');
   const [localeTypeFilter, setLocaleTypeFilter] = useState(searchParams.get('locale_type') || '');
   const [localeSubtypeFilter, setLocaleSubtypeFilter] = useState(searchParams.get('locale_subtype') || '');
+  const [ncesYearFilter, setNcesYearFilter] = useState(searchParams.get('nces_year') || '');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
+  const [ncesYears, setNcesYears] = useState<string[]>([]);
 
   const LOCALE_TYPES = ['City', 'Suburb', 'Town', 'Rural'];
   const LOCALE_SUBTYPES = ['Large', 'Midsize', 'Small', 'Fringe', 'Distant', 'Remote'];
@@ -148,6 +150,7 @@ function IngestionDashboard() {
     if (params.district_size) sp.set('district_size', params.district_size);
     if (params.locale_type) sp.set('locale_type', params.locale_type);
     if (params.locale_subtype) sp.set('locale_subtype', params.locale_subtype);
+    if (params.nces_year) sp.set('nces_year', params.nces_year);
     if (params.page && params.page !== '1') sp.set('page', params.page);
     const query = sp.toString();
     router.replace(`/admin/ingestion${query ? '?' + query : ''}`, { scroll: false });
@@ -165,20 +168,25 @@ function IngestionDashboard() {
       if (districtSizeFilter) params.set('district_size', districtSizeFilter);
       if (localeTypeFilter) params.set('locale_type', localeTypeFilter);
       if (localeSubtypeFilter) params.set('locale_subtype', localeSubtypeFilter);
+      if (ncesYearFilter) params.set('nces_year', ncesYearFilter);
       params.set('page', String(page));
       params.set('limit', '20');
 
+      const summaryParams = ncesYearFilter ? `?nces_year=${encodeURIComponent(ncesYearFilter)}` : '';
       const [candidatesData, summaryData] = await Promise.all([
         api.get<{ candidates: Candidate[]; pagination: Pagination }>(
           `/admin/ingestion/candidates?${params}`
         ),
-        api.get<{ summary: Summary; recent_jobs: Job[] }>('/admin/ingestion/summary'),
+        api.get<{ summary: Summary; recent_jobs: Job[]; nces_years: string[] }>(
+          `/admin/ingestion/summary${summaryParams}`
+        ),
       ]);
 
       setCandidates(candidatesData.candidates);
       setPagination(candidatesData.pagination);
-        setSummary(summaryData.summary);
+      setSummary(summaryData.summary);
       setRecentJobs(summaryData.recent_jobs);
+      setNcesYears(summaryData.nces_years || []);
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         router.push('/discover');
@@ -189,7 +197,7 @@ function IngestionDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter, page, router]);
+  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter, ncesYearFilter, page, router]);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push('/login'); return; }
@@ -303,6 +311,7 @@ function IngestionDashboard() {
     if (key === 'district_size') setDistrictTypeFilter(value);
     if (key === 'locale_type') setLocaleTypeFilter(value);
     if (key === 'locale_subtype') setLocaleSubtypeFilter(value);
+    if (key === 'nces_year') setNcesYearFilter(value);
     updateUrl({
       search: key === 'search' ? value : search,
       state: key === 'state' ? value : stateFilter,
@@ -310,6 +319,7 @@ function IngestionDashboard() {
       district_size: key === 'district_size' ? value : districtSizeFilter,
       locale_type: key === 'locale_type' ? value : localeTypeFilter,
       locale_subtype: key === 'locale_subtype' ? value : localeSubtypeFilter,
+      nces_year: key === 'nces_year' ? value : ncesYearFilter,
       page: '1',
     });
   };
@@ -684,6 +694,19 @@ function IngestionDashboard() {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+            {ncesYears.length > 1 && (
+              <select
+                value={ncesYearFilter}
+                onChange={(e) => handleFilterChange('nces_year', e.target.value)}
+                className="input-field !w-auto min-w-[10rem] flex-none"
+                title="NCES year"
+              >
+                <option value="">All years</option>
+                {ncesYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            )}
             {hasFailed && (
               <button
                 onClick={() => handleFilterChange('status', 'failed')}
@@ -692,7 +715,7 @@ function IngestionDashboard() {
                 View Failed
               </button>
             )}
-            {(search || stateFilter || statusFilter || districtSizeFilter || localeTypeFilter || localeSubtypeFilter) && (
+            {(search || stateFilter || statusFilter || districtSizeFilter || localeTypeFilter || localeSubtypeFilter || ncesYearFilter) && (
               <button
                 onClick={() => {
                   setSearch('');
@@ -701,8 +724,9 @@ function IngestionDashboard() {
                   setDistrictTypeFilter('');
                   setLocaleTypeFilter('');
                   setLocaleSubtypeFilter('');
+                  setNcesYearFilter('');
                   setPage(1);
-                  updateUrl({ search: '', state: '', status: '', district_size: '', locale_type: '', locale_subtype: '', page: '1' });
+                  updateUrl({ search: '', state: '', status: '', district_size: '', locale_type: '', locale_subtype: '', nces_year: '', page: '1' });
                 }}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
@@ -745,6 +769,7 @@ function IngestionDashboard() {
             districtSizeFilter={districtSizeFilter}
             localeTypeFilter={localeTypeFilter}
             localeSubtypeFilter={localeSubtypeFilter}
+            ncesYearFilter={ncesYearFilter}
           />
         )}
 
@@ -786,7 +811,7 @@ function IngestionDashboard() {
         ) : candidates.length === 0 ? (
           <div className="card text-center py-12">
             <p className="text-gray-500">
-              {pagination?.total === 0 && !search && !stateFilter && !statusFilter && !districtSizeFilter && !localeTypeFilter && !localeSubtypeFilter
+              {pagination?.total === 0 && !search && !stateFilter && !statusFilter && !districtSizeFilter && !localeTypeFilter && !localeSubtypeFilter && !ncesYearFilter
                 ? 'No district data yet. Click "Upload NCES Data" to get started.'
                 : 'No districts found'}
             </p>

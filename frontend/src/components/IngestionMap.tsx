@@ -23,6 +23,7 @@ interface IngestionMapProps {
   districtSizeFilter?: string;
   localeTypeFilter?: string;
   localeSubtypeFilter?: string;
+  ncesYearFilter?: string;
 }
 
 // Status → hex color mapping (matches dashboard badge colors)
@@ -54,7 +55,7 @@ function createColoredIcon(L: typeof import('leaflet'), color: string) {
   });
 }
 
-export default function IngestionMap({ search, stateFilter, statusFilter, districtSizeFilter = '', localeTypeFilter = '', localeSubtypeFilter = '' }: IngestionMapProps) {
+export default function IngestionMap({ search, stateFilter, statusFilter, districtSizeFilter = '', localeTypeFilter = '', localeSubtypeFilter = '', ncesYearFilter = '' }: IngestionMapProps) {
   const router = useRouter();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<import('leaflet').Map | null>(null);
@@ -110,6 +111,7 @@ export default function IngestionMap({ search, stateFilter, statusFilter, distri
         if (districtSizeFilter) params.set('district_size', districtSizeFilter);
         if (localeTypeFilter) params.set('locale_type', localeTypeFilter);
         if (localeSubtypeFilter) params.set('locale_subtype', localeSubtypeFilter);
+        if (ncesYearFilter) params.set('nces_year', ncesYearFilter);
 
         const data = await api.get<{ districts: MapDistrict[] }>(
           `/admin/ingestion/map-data?${params}`
@@ -126,7 +128,7 @@ export default function IngestionMap({ search, stateFilter, statusFilter, distri
 
     fetchMapData();
     return () => controller.abort();
-  }, [search, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter]);
+  }, [search, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter, ncesYearFilter]);
 
   // Update markers when map and data are ready
   useEffect(() => {

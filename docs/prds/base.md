@@ -117,7 +117,7 @@ This platform enables:
 
 * User registration and login
 * Role-based access (member, moderator, admin)
-* Membership approval/verification
+* No admin approval required for membership (users are approved on registration)
 
 ### 8.2 User Profiles
 

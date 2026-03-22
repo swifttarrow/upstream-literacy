@@ -205,6 +205,7 @@ const candidateFilterSchema = z.object({
   district_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
   locale_type: z.enum(['City', 'Suburb', 'Town', 'Rural']).optional(),
   locale_subtype: z.enum(['Large', 'Midsize', 'Small', 'Fringe', 'Distant', 'Remote']).optional(),
+  nces_year: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -216,6 +217,7 @@ const mapFilterSchema = z.object({
   district_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
   locale_type: z.enum(['City', 'Suburb', 'Town', 'Rural']).optional(),
   locale_subtype: z.enum(['Large', 'Midsize', 'Small', 'Fringe', 'Distant', 'Remote']).optional(),
+  nces_year: z.string().optional(),
 });
 
 const triggerSchema = z.object({
@@ -255,7 +257,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, district_size, locale_type, locale_subtype, page, limit } = parsed.data;
+      const { search, state, status, district_size, locale_type, locale_subtype, nces_year, page, limit } = parsed.data;
       const offset = (page - 1) * limit;
 
       const conditions: string[] = [];
@@ -285,6 +287,10 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       if (locale_subtype) {
         conditions.push(`dc.locale_subtype = $${idx++}`);
         values.push(locale_subtype);
+      }
+      if (nces_year) {
+        conditions.push(`dc.nces_year = $${idx++}`);
+        values.push(nces_year);
       }
 
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -320,24 +326,47 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/admin/ingestion/summary',
     { preHandler: [authenticate, requireModerator] },
-    async (_request, reply) => {
-      const result = await pool.query(
-        `SELECT
-           COUNT(*) FILTER (WHERE status = 'not_ingested') AS not_ingested,
-           COUNT(*) FILTER (WHERE status = 'ready_to_ingest') AS ready_to_ingest,
-           COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
-           COUNT(*) FILTER (WHERE status = 'ingested') AS ingested,
-           COUNT(*) FILTER (WHERE status = 'ingested_with_warnings') AS ingested_with_warnings,
-           COUNT(*) FILTER (WHERE status = 'failed') AS failed,
-           COUNT(*) AS total,
-           COUNT(*) FILTER (WHERE latitude IS NOT NULL AND longitude IS NOT NULL) AS with_coordinates,
-           COUNT(*) FILTER (WHERE latitude IS NULL OR longitude IS NULL) AS without_coordinates
-         FROM district_candidates`
+    async (request, reply) => {
+      const { nces_year } = (request.query as { nces_year?: string }) || {};
+
+      const result = nces_year
+        ? await pool.query(
+            `SELECT
+               COUNT(*) FILTER (WHERE status = 'not_ingested') AS not_ingested,
+               COUNT(*) FILTER (WHERE status = 'ready_to_ingest') AS ready_to_ingest,
+               COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
+               COUNT(*) FILTER (WHERE status = 'ingested') AS ingested,
+               COUNT(*) FILTER (WHERE status = 'ingested_with_warnings') AS ingested_with_warnings,
+               COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+               COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE latitude IS NOT NULL AND longitude IS NOT NULL) AS with_coordinates,
+               COUNT(*) FILTER (WHERE latitude IS NULL OR longitude IS NULL) AS without_coordinates
+             FROM district_candidates
+             WHERE nces_year = $1`,
+            [nces_year]
+          )
+        : await pool.query(
+            `SELECT
+               COUNT(*) FILTER (WHERE status = 'not_ingested') AS not_ingested,
+               COUNT(*) FILTER (WHERE status = 'ready_to_ingest') AS ready_to_ingest,
+               COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
+               COUNT(*) FILTER (WHERE status = 'ingested') AS ingested,
+               COUNT(*) FILTER (WHERE status = 'ingested_with_warnings') AS ingested_with_warnings,
+               COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+               COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE latitude IS NOT NULL AND longitude IS NOT NULL) AS with_coordinates,
+               COUNT(*) FILTER (WHERE latitude IS NULL OR longitude IS NULL) AS without_coordinates
+             FROM district_candidates`
+          );
+
+      const yearsResult = await pool.query(
+        `SELECT DISTINCT nces_year FROM district_candidates WHERE nces_year IS NOT NULL ORDER BY nces_year DESC`
       );
+      const nces_years = yearsResult.rows.map((r) => r.nces_year as string);
 
       const jobs = await getRecentJobs(5);
 
-      return reply.send({ summary: result.rows[0], recent_jobs: jobs });
+      return reply.send({ summary: result.rows[0], recent_jobs: jobs, nces_years });
     }
   );
 
@@ -351,7 +380,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, district_size, locale_type, locale_subtype } = parsed.data;
+      const { search, state, status, district_size, locale_type, locale_subtype, nces_year } = parsed.data;
 
       const conditions: string[] = ['dc.latitude IS NOT NULL', 'dc.longitude IS NOT NULL'];
       const values: unknown[] = [];
@@ -380,6 +409,10 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       if (locale_subtype) {
         conditions.push(`dc.locale_subtype = $${idx++}`);
         values.push(locale_subtype);
+      }
+      if (nces_year) {
+        conditions.push(`dc.nces_year = $${idx++}`);
+        values.push(nces_year);
       }
 
       const where = `WHERE ${conditions.join(' AND ')}`;

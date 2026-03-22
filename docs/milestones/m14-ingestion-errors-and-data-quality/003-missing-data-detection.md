@@ -9,7 +9,7 @@ Detect and flag missing or incomplete data at field, record, and job level per P
 - [x] Data quality rules: required for ingestion, required for matching readiness, optional but recommended (per PRD §12)
 - [x] Classification: Ready, Warning, Blocked
 - [x] Warning states: MissingOptionalData, MissingRequiredMatchingData, DerivedValueUsed, SourceMetadataIncomplete
-- [x] Flag missing fields during preview and ingestion (district_type, enrollment, FRL, EL, grade_bands, source_timestamp)
+- [x] Flag missing fields during preview and ingestion (district_size, enrollment, FRL, EL, grade_bands, source_timestamp)
 - [x] Configurable rules for hard-stop vs warning-only (admin config or code)
 - [x] Surface in preview UI, job summary, candidate list missing indicator
 

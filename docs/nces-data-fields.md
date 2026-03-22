@@ -21,8 +21,18 @@ This document describes what district data we extract from the NCES CCD + EDGE u
 | **locale_type** | EDGE (derived) | From LOCALE | `district_candidates.locale_type` | City, Suburb, Town, Rural. |
 | **locale_subtype** | EDGE (derived) | From LOCALE | `district_candidates.locale_subtype` | Large/Midsize/Small (city/suburb) or Fringe/Distant/Remote (town/rural). |
 | **locale_size** | EDGE (derived) | From locale_subtype | `district_candidates.locale_size` | Large, Medium, Small (city/suburb only); null for town/rural. |
-| **district_type** | EDGE (derived) | From locale_size | `district_candidates.district_type` | large, mid, small (filter value); unknown when locale_size is null. |
+| **district_size** | Enrollment (derived) | From enrollment | `district_candidates.district_size` | **Size (enrollment-based):** small (&lt;2,500), medium (2,500–10K), large (10K–25K), xl (25K+); unknown when enrollment is missing. See table below. |
 | **Enrollment** | CCD Membership (C052) | `LEA_ENR`, `MEMBER`, `ENROLLMENT`, `TOTAL`, `TOTMENROL` | `district_candidates.enrollment` | **Requires optional Membership file upload.** Directory file has none. |
+
+### District Size (Enrollment-Based)
+
+| Size | Enrollment range |
+|------|------------------|
+| Small | &lt; 2,500 |
+| Medium | 2,500 – 10,000 |
+| Large | 10,000 – 25,000 |
+| XL | 25,000+ |
+| Unknown | No enrollment data |
 
 ### NCES Locale Code Reference (11–43)
 

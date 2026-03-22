@@ -114,7 +114,7 @@ NCES EDGE provides district-level latitude/longitude coordinates. Download from:
 - State
 - NCES district identifier
 - NCES year (school year from CCD file; used when selecting across multiple upload years)
-- District type / locale classification
+- District size (enrollment-based: Small &lt;2,500, Medium 2,500–10K, Large 10K–25K, XL 25K+; unknown when enrollment is missing)
 - Enrollment
 - Enrollment bucket
 - Free/reduced lunch indicator or proxy
@@ -451,7 +451,7 @@ The system should classify fields into:
 - at least one valid district matching anchor
 
 ### Required for matching readiness
-- district type or equivalent locale bucket
+- district size (enrollment-based: small/medium/large/xl; unknown when enrollment missing)
 - enrollment bucket
 - at least one problem-independent district context field
 
@@ -562,8 +562,8 @@ For each ingested district, the system should support:
 - `district_name`
 - `state`
 - `nces_district_id`
-- `district_type_raw`
-- `district_type_normalized`
+- `district_size_raw`
+- `district_size_normalized`
 - `enrollment_raw`
 - `enrollment_bucket`
 - `frl_raw`

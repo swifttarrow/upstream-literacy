@@ -96,12 +96,107 @@ async function streamCsvToRows(stream: Readable): Promise<Record<string, string>
 
 /** Enrollment column names: CCD Directory has none; CCD Membership has LEA_ENR, TOTAL, STUDENT_COUNT, etc. */
 const ENROLLMENT_COLS = ['LEA_ENR', 'MEMBER', 'ENROLLMENT', 'TOTAL', 'TOTMENROL', 'MEMBERSHIP', 'TOTAL_IND', 'STUDENT_COUNT'];
+const EL_COLS = ['EL', 'ELL', 'LEP', 'ENGLISH_LEARNERS', 'EL_COUNT', 'SCH_ENR_EL'];
+const FRL_TOTAL_COLS = ['FRL', 'FRL_COUNT', 'TOTAL_FRL', 'FRPL', 'NSLP'];
+const FRL_FREE_COLS = ['FREE_LUNCH', 'FREE_LUNCH_COUNT', 'FRELCH', 'SCH_FREE_LUNCH'];
+const FRL_REDUCED_COLS = ['REDUCED_LUNCH', 'REDUCED_LUNCH_COUNT', 'REDLCH', 'SCH_REDUCED_LUNCH'];
 
 function getEnrollment(row: Record<string, string>): number | null {
   const str = getCol(row, ...ENROLLMENT_COLS);
   if (!str?.trim()) return null;
   const n = parseInt(str.replace(/,/g, ''), 10);
   return !isNaN(n) && n >= 0 ? n : null;
+}
+
+function getCountFromCols(row: Record<string, string>, names: string[]): number | null {
+  const raw = getCol(row, ...names);
+  if (!raw?.trim()) return null;
+  const n = parseInt(raw.replace(/,/g, ''), 10);
+  return !isNaN(n) && n >= 0 ? n : null;
+}
+
+interface MembershipMetrics {
+  enrollmentMap: Map<string, number>;
+  frlPctMap: Map<string, number>;
+  elPctMap: Map<string, number>;
+  rowsParsed: number;
+}
+
+function finalizeMembershipTotals(
+  totals: Map<string, { enrollment: number; frl: number; el: number }>,
+  rowsParsed: number
+): MembershipMetrics {
+  const enrollmentMap = new Map<string, number>();
+  const frlPctMap = new Map<string, number>();
+  const elPctMap = new Map<string, number>();
+
+  for (const [leaid, t] of totals.entries()) {
+    if (t.enrollment <= 0) continue;
+    enrollmentMap.set(leaid, t.enrollment);
+    if (t.frl > 0) frlPctMap.set(leaid, Math.min(100, (t.frl / t.enrollment) * 100));
+    if (t.el > 0) elPctMap.set(leaid, Math.min(100, (t.el / t.enrollment) * 100));
+  }
+
+  return { enrollmentMap, frlPctMap, elPctMap, rowsParsed };
+}
+
+function applyMembershipRow(
+  totals: Map<string, { enrollment: number; frl: number; el: number }>,
+  row: Record<string, string>
+): void {
+  const leaid = detectLeaid(row);
+  const enrollment = getEnrollment(row);
+  if (!leaid || enrollment == null || enrollment <= 0) return;
+
+  const norm = normalizeLeaid(leaid);
+  const entry = totals.get(norm) ?? { enrollment: 0, frl: 0, el: 0 };
+  entry.enrollment += enrollment;
+
+  const el = getCountFromCols(row, EL_COLS);
+  if (el != null) entry.el += el;
+
+  const frlTotal = getCountFromCols(row, FRL_TOTAL_COLS);
+  if (frlTotal != null) {
+    entry.frl += frlTotal;
+  } else {
+    const free = getCountFromCols(row, FRL_FREE_COLS) ?? 0;
+    const reduced = getCountFromCols(row, FRL_REDUCED_COLS) ?? 0;
+    entry.frl += free + reduced;
+  }
+
+  totals.set(norm, entry);
+}
+
+function buildMembershipMetrics(rows: Record<string, string>[]): MembershipMetrics {
+  const totals = new Map<string, { enrollment: number; frl: number; el: number }>();
+
+  for (const row of rows) {
+    applyMembershipRow(totals, row);
+  }
+
+  return finalizeMembershipTotals(totals, rows.length);
+}
+
+async function buildMembershipMetricsFromStream(stream: Readable): Promise<MembershipMetrics> {
+  const totals = new Map<string, { enrollment: number; frl: number; el: number }>();
+  let rowsParsed = 0;
+  await pipeline(
+    stream,
+    csv(),
+    new Writable({
+      objectMode: true,
+      write(row: Record<string, string>, _enc, cb) {
+        rowsParsed++;
+        try {
+          applyMembershipRow(totals, row);
+          cb();
+        } catch (err) {
+          cb(err as Error);
+        }
+      },
+    })
+  );
+  return finalizeMembershipTotals(totals, rowsParsed);
 }
 
 const KNOWN_LAT_COLS = ['LAT', 'LATY', 'LATITUDE', 'Y', 'POINT_Y', 'LAT1516', 'LAT1617', 'LAT1718', 'LAT1819'];
@@ -306,6 +401,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         `SELECT dc.id, dc.nces_district_id, dc.name, dc.state, dc.district_size,
                 dc.locale_code, dc.locale_type, dc.locale_subtype, dc.locale_size,
                 dc.status, dc.missing_data_indicator, dc.last_refresh_at,
+                dc.frl_pct, dc.el_pct,
                 dc.district_id, dc.enrollment, dc.nces_year, dc.created_at,
                 (dc.latitude IS NULL OR dc.longitude IS NULL) AS missing_coordinates
          FROM district_candidates dc
@@ -862,7 +958,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
 
   // POST /admin/ingestion/upload-url — get presigned URL for direct S3/R2 upload (all files go through R2)
   const uploadUrlSchema = z.object({
-    purpose: z.enum(['ccd', 'edge', 'membership']),
+    purpose: z.enum(['ccd', 'edge', 'district_enrollment', 'school_membership']),
     filename: z.string().min(1),
   });
   fastify.post(
@@ -890,8 +986,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /admin/ingestion/process-membership — stream parse from S3 and update enrollment on district_candidates
-  const processMembershipSchema = z.object({ objectKey: z.string().min(1).startsWith('ingestion/membership/') });
+  // POST /admin/ingestion/process-membership — stream parse district enrollment file and update candidates
+  const processMembershipSchema = z.object({
+    objectKey: z.string().min(1).refine(
+      (v) => v.startsWith('ingestion/district_enrollment/') || v.startsWith('ingestion/membership/'),
+      { message: 'objectKey must be under ingestion/district_enrollment/' }
+    ),
+  });
   fastify.post(
     '/admin/ingestion/process-membership',
     { preHandler: [authenticate, requireModerator] },
@@ -909,32 +1010,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           message: 'S3 is not configured or the file was not found. Ensure the upload completed successfully.',
         });
       }
-      const enrollmentMap = new Map<string, number>();
       const errors: string[] = [];
       let rowCount = 0;
+      let enrollmentMap = new Map<string, number>();
       try {
-        await pipeline(
-          stream,
-          csv(),
-          new Writable({
-            objectMode: true,
-            write(row: Record<string, string>, _enc, cb) {
-              rowCount++;
-              try {
-                const leaid = detectLeaid(row);
-                const enr = getEnrollment(row);
-                if (leaid && enr != null) {
-                  const norm = normalizeLeaid(leaid);
-                  const existing = enrollmentMap.get(norm) ?? 0;
-                  enrollmentMap.set(norm, existing + enr);
-                }
-              } catch (e) {
-                errors.push(`Row ${rowCount}: ${(e as Error).message}`);
-              }
-              cb();
-            },
-          })
-        );
+        const metrics = await buildMembershipMetricsFromStream(stream);
+        rowCount = metrics.rowsParsed;
+        enrollmentMap = metrics.enrollmentMap;
       } catch (err) {
         return reply.status(500).send({
           error: 'parse_error',
@@ -986,11 +1068,12 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /admin/ingestion/process-upload — full ingestion from R2 (CCD + EDGE + optional Membership)
+  // POST /admin/ingestion/process-upload — full ingestion from R2 using 4 files
   const processUploadSchema = z.object({
     ccd_object_key: z.string().min(1).startsWith('ingestion/ccd/'),
     edge_object_key: z.string().min(1).startsWith('ingestion/edge/'),
-    membership_object_key: z.string().min(1).startsWith('ingestion/membership/'),
+    district_enrollment_object_key: z.string().min(1).startsWith('ingestion/district_enrollment/'),
+    school_membership_object_key: z.string().min(1).startsWith('ingestion/school_membership/'),
     nces_year: z.string().optional(),
   });
   fastify.post(
@@ -1002,7 +1085,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       if (!parsed.success) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
-      const { ccd_object_key, edge_object_key, membership_object_key, nces_year } = parsed.data;
+      const {
+        ccd_object_key,
+        edge_object_key,
+        district_enrollment_object_key,
+        school_membership_object_key,
+        nces_year,
+      } = parsed.data;
       if (!isS3Configured()) {
         return reply.status(503).send({
           error: 's3_not_configured',
@@ -1030,24 +1119,25 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           message: (err as Error).message,
         });
       }
-      const enrollmentMap = new Map<string, number>();
-      const memStream = await getObjectStream(membership_object_key);
-      if (!memStream) {
+      let enrollmentMap = new Map<string, number>();
+      let frlPctMap = new Map<string, number>();
+      let elPctMap = new Map<string, number>();
+      const districtEnrollmentStream = await getObjectStream(district_enrollment_object_key);
+      const schoolMembershipStream = await getObjectStream(school_membership_object_key);
+      if (!districtEnrollmentStream || !schoolMembershipStream) {
         return reply.status(400).send({
-          error: 'membership_not_found',
-          message: 'Membership file not found in storage. Ensure upload completed successfully.',
+          error: 'membership_files_not_found',
+          message: 'District enrollment or school membership file not found in storage. Ensure uploads completed successfully.',
         });
       }
       try {
-        const memRows = await streamCsvToRows(memStream);
-        for (const row of memRows) {
-          const leaid = detectLeaid(row);
-          const enr = getEnrollment(row);
-          if (leaid && enr != null) {
-            const norm = normalizeLeaid(leaid);
-            enrollmentMap.set(norm, (enrollmentMap.get(norm) ?? 0) + enr);
-          }
-        }
+        const [districtMetrics, schoolMetrics] = await Promise.all([
+          buildMembershipMetricsFromStream(districtEnrollmentStream),
+          buildMembershipMetricsFromStream(schoolMembershipStream),
+        ]);
+        enrollmentMap = districtMetrics.enrollmentMap;
+        frlPctMap = schoolMetrics.frlPctMap;
+        elPctMap = schoolMetrics.elPctMap;
       } catch (err) {
         return reply.status(500).send({
           error: 'membership_parse_error',
@@ -1114,6 +1204,8 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         localeType: string | null;
         localeSubtype: string | null;
         localeSize: string | null;
+        frlPct: number | null;
+        elPct: number | null;
       }
       const rowsToInsert: RowToInsert[] = [];
       for (const row of ccdRows) {
@@ -1143,9 +1235,11 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           localeType: locale.locale_type,
           localeSubtype: locale.locale_subtype,
           localeSize: locale.locale_size,
+          frlPct: frlPctMap.get(paddedLeaid) ?? null,
+          elPct: elPctMap.get(paddedLeaid) ?? null,
         });
       }
-      const COLS_PER_ROW = 13;
+      const COLS_PER_ROW = 15;
       for (let i = 0; i < rowsToInsert.length; i += BATCH_SIZE) {
         const batch = rowsToInsert.slice(i, i + BATCH_SIZE);
         const values: unknown[] = [];
@@ -1153,23 +1247,24 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         batch.forEach((r, idx) => {
           const base = idx * COLS_PER_ROW + 1;
           placeholders.push(
-            `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, now(), now())`
+            `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, now(), now())`
           );
           values.push(
-            r.paddedLeaid, r.name, r.state, r.districtSize, r.enrollment, r.ncesYear,
-            r.lat, r.lon, r.geocodedAt, r.localeCode, r.localeType, r.localeSubtype, r.localeSize
+            r.paddedLeaid, r.name, r.state, r.districtSize, r.enrollment, r.frlPct, r.elPct, r.ncesYear,
+            r.lat, r.lon, r.geocodedAt, r.localeCode, r.localeType, r.localeSubtype, r.localeSize,
           );
         });
         try {
           const result = await pool.query(
             `INSERT INTO district_candidates
-               (nces_district_id, name, state, district_size, enrollment, nces_year,
+               (nces_district_id, name, state, district_size, enrollment, frl_pct, el_pct, nces_year,
                 latitude, longitude, geocoded_at, locale_code, locale_type, locale_subtype, locale_size,
                 last_refresh_at, updated_at)
              VALUES ${placeholders.join(', ')}
              ON CONFLICT (nces_district_id) DO UPDATE SET
                name = EXCLUDED.name, state = EXCLUDED.state, district_size = EXCLUDED.district_size,
-               enrollment = EXCLUDED.enrollment, nces_year = EXCLUDED.nces_year,
+               enrollment = EXCLUDED.enrollment, frl_pct = EXCLUDED.frl_pct, el_pct = EXCLUDED.el_pct,
+               nces_year = EXCLUDED.nces_year,
                latitude = COALESCE(EXCLUDED.latitude, district_candidates.latitude),
                longitude = COALESCE(EXCLUDED.longitude, district_candidates.longitude),
                geocoded_at = COALESCE(EXCLUDED.geocoded_at, district_candidates.geocoded_at),
@@ -1202,7 +1297,8 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         source: 'r2_upload',
         ccd_key: ccd_object_key,
         edge_key: edge_object_key,
-        membership_key: membership_object_key,
+        district_enrollment_key: district_enrollment_object_key,
+        school_membership_key: school_membership_object_key,
         nces_year: nces_year,
         district_count: candidateIds.length,
       });
@@ -1220,7 +1316,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         },
         enrollment_diagnostic: {
           with_enrollment: rowsToInsert.filter((r) => r.enrollment != null).length,
-          from_membership_file: enrollmentMap.size > 0,
+          from_district_enrollment_file: enrollmentMap.size > 0,
+        },
+        school_lunch_diagnostic: {
+          with_frl_pct: rowsToInsert.filter((r) => r.frlPct != null).length,
+        },
+        el_diagnostic: {
+          with_el_pct: rowsToInsert.filter((r) => r.elPct != null).length,
         },
         parse_errors: errors.length > 0 ? errors : undefined,
       });
@@ -1250,14 +1352,19 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       }
       const ccdRows = parseCsv(files.ccd_file.content);
       const edgeRows = parseCsv(files.edge_file.content);
-      let membershipEnrollmentCount = 0;
-      if (files.membership_file?.content) {
-        const memRows = parseCsv(files.membership_file.content);
-        for (const row of memRows) {
-          const leaid = detectLeaid(row);
-          const enr = getEnrollment(row);
-          if (leaid && enr != null) membershipEnrollmentCount++;
-        }
+      let districtEnrollmentCount = 0;
+      let schoolFrlPctCount = 0;
+      let schoolElPctCount = 0;
+      if (files.district_enrollment_file?.content) {
+        const memRows = parseCsv(files.district_enrollment_file.content);
+        const metrics = buildMembershipMetrics(memRows);
+        districtEnrollmentCount = metrics.enrollmentMap.size;
+      }
+      if (files.school_membership_file?.content) {
+        const schoolRows = parseCsv(files.school_membership_file.content);
+        const schoolMetrics = buildMembershipMetrics(schoolRows);
+        schoolFrlPctCount = schoolMetrics.frlPctMap.size;
+        schoolElPctCount = schoolMetrics.elPctMap.size;
       }
       const ccdCols = ccdRows[0] ? Object.keys(ccdRows[0]) : [];
       const edgeCols = edgeRows[0] ? Object.keys(edgeRows[0]) : [];
@@ -1289,8 +1396,14 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       const sampleEdgeLeaid = edgeRows[0] ? detectLeaid(edgeRows[0]) : null;
       return reply.send({
         ccd: { rows: ccdRows.length, columns: ccdCols, sample_leaid: sampleCcdLeaid, sample_normalized: sampleCcdLeaid ? normalizeLeaid(sampleCcdLeaid) : null },
-        membership: files.membership_file
-          ? { rows: parseCsv(files.membership_file.content).length, enrollment_extracted: membershipEnrollmentCount }
+        district_enrollment: files.district_enrollment_file
+          ? {
+              rows: parseCsv(files.district_enrollment_file.content).length,
+              enrollment_extracted: districtEnrollmentCount,
+            }
+          : null,
+        school_membership_metrics: files.school_membership_file
+          ? { frl_pct_extracted: schoolFrlPctCount, el_pct_extracted: schoolElPctCount }
           : null,
         edge: {
           rows: edgeRows.length,
@@ -1345,19 +1458,29 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'edge_file_required', message: 'edge_file is required' });
       }
 
-      // Build LEAID → enrollment from optional CCD LEA Membership file (C052)
-      // Directory file has NO enrollment; enrollment is in the separate Membership file
-      const enrollmentMap = new Map<string, number>();
-      if (files.membership_file?.content) {
-        const memRows = parseCsv(files.membership_file.content);
-        for (const row of memRows) {
-          const leaid = detectLeaid(row);
-          const enr = getEnrollment(row);
-          if (leaid && enr != null) {
-            enrollmentMap.set(normalizeLeaid(leaid), enr);
-          }
-        }
+      // Build LEAID → enrollment from required district enrollment file (LEA Membership C052)
+      let enrollmentMap = new Map<string, number>();
+      let frlPctMap = new Map<string, number>();
+      let elPctMap = new Map<string, number>();
+      if (!files.district_enrollment_file) {
+        return reply.status(400).send({
+          error: 'district_enrollment_file_required',
+          message: 'district_enrollment_file is required',
+        });
       }
+      if (!files.school_membership_file) {
+        return reply.status(400).send({
+          error: 'school_membership_file_required',
+          message: 'school_membership_file is required',
+        });
+      }
+      const districtMembershipRows = parseCsv(files.district_enrollment_file.content);
+      const districtMetrics = buildMembershipMetrics(districtMembershipRows);
+      enrollmentMap = districtMetrics.enrollmentMap;
+      const schoolMembershipRows = parseCsv(files.school_membership_file.content);
+      const schoolMetrics = buildMembershipMetrics(schoolMembershipRows);
+      frlPctMap = schoolMetrics.frlPctMap;
+      elPctMap = schoolMetrics.elPctMap;
 
       // Parse CCD CSV
       const ccdRows = parseCsv(files.ccd_file.content);
@@ -1433,6 +1556,8 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         state: string;
         districtSize: string;
         enrollment: number | null;
+        frlPct: number | null;
+        elPct: number | null;
         ncesYear: string | null;
         lat: number | null;
         lon: number | null;
@@ -1470,6 +1595,8 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           state: state.toUpperCase(),
           districtSize: deriveDistrictSizeFromEnrollment(isNaN(enrollment as number) ? null : enrollment),
           enrollment: isNaN(enrollment as number) ? null : enrollment,
+          frlPct: frlPctMap.get(paddedLeaid) ?? null,
+          elPct: elPctMap.get(paddedLeaid) ?? null,
           ncesYear,
           lat: edgeData?.lat ?? null,
           lon: edgeData?.lon ?? null,
@@ -1485,11 +1612,11 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         const batch = rowsToInsert.slice(i, i + BATCH_SIZE);
         const values: unknown[] = [];
         const placeholders: string[] = [];
-        const COLS_PER_ROW = 13;
+        const COLS_PER_ROW = 15;
         batch.forEach((r, idx) => {
           const base = idx * COLS_PER_ROW + 1;
           placeholders.push(
-            `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, now(), now())`
+            `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, now(), now())`
           );
           values.push(
             r.paddedLeaid,
@@ -1497,6 +1624,8 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
             r.state,
             r.districtSize,
             r.enrollment,
+            r.frlPct,
+            r.elPct,
             r.ncesYear,
             r.lat,
             r.lon,
@@ -1510,7 +1639,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         try {
           const result = await pool.query(
             `INSERT INTO district_candidates
-               (nces_district_id, name, state, district_size, enrollment, nces_year,
+               (nces_district_id, name, state, district_size, enrollment, frl_pct, el_pct, nces_year,
                 latitude, longitude, geocoded_at, locale_code, locale_type, locale_subtype, locale_size,
                 last_refresh_at, updated_at)
              VALUES ${placeholders.join(', ')}
@@ -1519,6 +1648,8 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
                state = EXCLUDED.state,
                district_size = EXCLUDED.district_size,
                enrollment = EXCLUDED.enrollment,
+               frl_pct = EXCLUDED.frl_pct,
+               el_pct = EXCLUDED.el_pct,
                nces_year = EXCLUDED.nces_year,
                latitude = COALESCE(EXCLUDED.latitude, district_candidates.latitude),
                longitude = COALESCE(EXCLUDED.longitude, district_candidates.longitude),
@@ -1600,7 +1731,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         enrollment_diagnostic: {
           with_enrollment: withEnrollment,
           without_enrollment: rowsToInsert.length - withEnrollment,
-          from_membership_file: enrollmentMap.size > 0,
+          from_district_enrollment_file: enrollmentMap.size > 0,
+        },
+        school_lunch_diagnostic: {
+          with_frl_pct: rowsToInsert.filter((r) => r.frlPct != null).length,
+        },
+        el_diagnostic: {
+          with_el_pct: rowsToInsert.filter((r) => r.elPct != null).length,
         },
         parse_errors: errors.length > 0 ? errors : undefined,
       });

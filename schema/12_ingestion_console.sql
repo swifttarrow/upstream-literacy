@@ -18,6 +18,8 @@ CREATE TABLE district_candidates (
   geocoded_at timestamptz,
   -- NCES CCD
   enrollment int,
+  frl_pct numeric(5,2),
+  el_pct numeric(5,2),
   nces_year text,
   -- Locale (from EDGE LOCALE column)
   locale_code text,
@@ -25,6 +27,10 @@ CREATE TABLE district_candidates (
   locale_subtype text,
   locale_size text
 );
+
+-- Existing deployments already have district_candidates, ensure new metrics columns exist.
+ALTER TABLE district_candidates ADD COLUMN IF NOT EXISTS frl_pct numeric(5,2);
+ALTER TABLE district_candidates ADD COLUMN IF NOT EXISTS el_pct numeric(5,2);
 
 CREATE INDEX idx_district_candidates_state ON district_candidates (state);
 CREATE INDEX idx_district_candidates_status ON district_candidates (status);

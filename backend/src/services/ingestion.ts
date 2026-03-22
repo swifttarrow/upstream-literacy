@@ -256,6 +256,12 @@ export async function processIngestionJob(jobId: string): Promise<void> {
         state: record.state,
         district_size: record.district_size || 'unknown',
       };
+      if (record.frl_pct != null) {
+        attributes.frl_pct = Number(record.frl_pct);
+      }
+      if (record.el_pct != null) {
+        attributes.el_pct = Number(record.el_pct);
+      }
       if (!record.district_size) {
         warnings.push('district_size missing — defaulted to unknown');
       }

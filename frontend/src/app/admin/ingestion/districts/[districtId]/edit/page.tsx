@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { getUser, isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
 
 interface Attribute {
   key: string;
@@ -144,7 +143,6 @@ export default function DistrictEditPage() {
   if (loading) {
     return (
       <>
-        <NavBar />
         <div className="max-w-3xl mx-auto px-4 py-8 animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/2 mb-4" />
           <div className="card h-48" />
@@ -156,7 +154,6 @@ export default function DistrictEditPage() {
   if (error || !district) {
     return (
       <>
-        <NavBar />
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="card text-center py-12">
             <p className="text-gray-500">{error || 'Not found'}</p>
@@ -179,7 +176,6 @@ export default function DistrictEditPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Link href="/admin/ingestion" className="text-sm text-gray-500 hover:text-gray-700 mb-3 inline-block">

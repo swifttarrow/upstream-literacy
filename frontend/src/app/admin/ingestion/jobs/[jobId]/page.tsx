@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { getUser, isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
 
 interface JobRecord {
   id: string;
@@ -185,7 +184,6 @@ export default function JobDetailPage() {
   if (loading) {
     return (
       <>
-        <NavBar />
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-1/3" />
@@ -200,7 +198,6 @@ export default function JobDetailPage() {
   if (error || !job) {
     return (
       <>
-        <NavBar />
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="card text-center py-12">
             <p className="text-gray-500">{error || 'Not found'}</p>
@@ -215,7 +212,6 @@ export default function JobDetailPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Link href="/admin/ingestion" className="text-sm text-gray-500 hover:text-gray-700 mb-3 inline-block">

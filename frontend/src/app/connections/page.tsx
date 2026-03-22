@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
@@ -42,41 +42,15 @@ export default function ConnectionsPage() {
   const hasCachedDataForTab = tab in connectionsByTab;
   const showSkeleton = loading && (showLoadingPlaceholder || !hasCachedDataForTab);
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadConnections();
-  }, [router, tab]);
-
-  // Only show skeleton after 120ms to avoid flash on fast requests
-  useEffect(() => {
-    if (!loading) {
-      setShowLoadingPlaceholder(false);
-      return;
-    }
-    const t = setTimeout(() => setShowLoadingPlaceholder(true), 120);
-    return () => clearTimeout(t);
-  }, [loading]);
-
-  const updateUrlForTab = (t: Tab) => {
+  const updateUrlForTab = useCallback((t: Tab) => {
     const params = new URLSearchParams();
     if (t !== 'connected') params.set('tab', t);
     const qs = params.toString();
     const path = qs ? `/connections?${qs}` : '/connections';
     router.replace(path, { scroll: false });
-  };
+  }, [router]);
 
-  const setTabAndUrl = (t: Tab) => {
-    if (t === tab) return;
-    setTab(t);
-    setLoading(true);
-    setShowLoadingPlaceholder(false);
-    updateUrlForTab(t);
-  };
-
-  const loadConnections = async () => {
+  const loadConnections = useCallback(async () => {
     const requestedTab = tab;
     const id = ++loadIdRef.current;
     setLoading(true);
@@ -114,6 +88,32 @@ export default function ConnectionsPage() {
         setLoading(false);
       }
     }
+  }, [tab, urlTab, hasCheckedPendingReceived, updateUrlForTab]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadConnections();
+  }, [router, tab, loadConnections]);
+
+  // Only show skeleton after 120ms to avoid flash on fast requests
+  useEffect(() => {
+    if (!loading) {
+      setShowLoadingPlaceholder(false);
+      return;
+    }
+    const t = setTimeout(() => setShowLoadingPlaceholder(true), 120);
+    return () => clearTimeout(t);
+  }, [loading]);
+
+  const setTabAndUrl = (t: Tab) => {
+    if (t === tab) return;
+    setTab(t);
+    setLoading(true);
+    setShowLoadingPlaceholder(false);
+    updateUrlForTab(t);
   };
 
   const handleAccept = async (connectionId: string) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
@@ -50,40 +50,29 @@ export default function DiscoverPage() {
 
   const [connectingIds, setConnectingIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadProblems();
-    loadMatches(1, true);
-  }, [router]);
-
-  const loadProblems = async () => {
+  const loadProblems = useCallback(async () => {
     try {
       const data = await api.get<{ statements: ProblemStatement[] }>('/problem-statements');
       setProblems(data.statements);
     } catch {
       // ignore
     }
-  };
+  }, []);
 
-  const buildQuery = (p: number, f = filters) => {
-    const params = new URLSearchParams();
-    params.set('page', String(p));
-    if (f.problemId) params.set('problemId', f.problemId);
-    if (f.stateRegion) params.set('stateRegion', f.stateRegion);
-    if (f.professionalRole) params.set('professionalRole', f.professionalRole);
-    return params.toString();
-  };
-
-  const loadMatches = async (p: number, reset = false, f = filters) => {
+  const loadMatches = useCallback(async (p: number, reset = false, f = filters) => {
     if (reset) setLoading(true);
     else setLoadingMore(true);
     setError('');
 
     try {
-      const data = await api.get<MatchResponse>(`/discovery/matches?${buildQuery(p, f)}`);
+      const params = new URLSearchParams();
+      params.set('page', String(p));
+      if (f.problemId) params.set('problemId', f.problemId);
+      if (f.stateRegion) params.set('stateRegion', f.stateRegion);
+      if (f.professionalRole) params.set('professionalRole', f.professionalRole);
+      const query = params.toString();
+
+      const data = await api.get<MatchResponse>(`/discovery/matches?${query}`);
       setMatches((prev) => (reset ? data.matches : [...prev, ...data.matches]));
       setMeta(data.meta);
       setPage(p);
@@ -98,7 +87,16 @@ export default function DiscoverPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [filters, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadProblems();
+    loadMatches(1, true);
+  }, [router, loadProblems, loadMatches]);
 
   const handleFilterChange = (field: string, value: string) => {
     const newFilters = { ...filters, [field]: value };

@@ -61,15 +61,7 @@ export default function ProfileSetupPage() {
   });
   const problemComboboxAnchor = useComboboxAnchor();
 
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadData();
-  }, [router]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [userRes, problemsRes] = await Promise.all([
         api.get<{ user: Record<string, unknown> }>('/users/me'),
@@ -103,7 +95,15 @@ export default function ProfileSetupPage() {
         setLoading(false);
       }
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadData();
+  }, [router, loadData]);
 
   const loadDistricts = useCallback(async (search: string) => {
     if (!search.trim()) {

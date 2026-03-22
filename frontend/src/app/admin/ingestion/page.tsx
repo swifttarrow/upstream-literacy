@@ -197,7 +197,7 @@ function IngestionDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter, ncesYearFilter, page, router]);
+  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, localeTypeFilter, localeSubtypeFilter, ncesYearFilter, page, router, pagination?.total, recentJobs.length]);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push('/login'); return; }

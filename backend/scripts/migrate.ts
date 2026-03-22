@@ -29,6 +29,9 @@ const SQL_FILE_ORDER = [
   '10_triggers.sql',
   '11_ingestion_console.sql',
   '12_district_candidates_geocode.sql',
+  '13_nces_upload_fields.sql',
+  '14_backfill_missing_coordinates_warnings.sql',
+  '15_locale_columns.sql',
 ];
 
 async function migrate() {

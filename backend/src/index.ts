@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
+import fastifyMultipart from '@fastify/multipart';
 
 import jwtPlugin from './plugins/jwt.js';
 import { startIngestionWorker } from './jobs/ingestion-worker.js';
@@ -26,6 +27,7 @@ export async function buildServer() {
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'warn' : 'info',
     },
+    bodyLimit: 250 * 1024 * 1024, // 250 MB — NCES CCD + EDGE + Membership can be large
   });
 
   // Plugins
@@ -35,6 +37,12 @@ export async function buildServer() {
   });
 
   await fastify.register(fastifyWebsocket);
+  await fastify.register(fastifyMultipart, {
+    limits: {
+      fileSize: 200 * 1024 * 1024, // 200 MB per file — full US CCD/EDGE can be 20–50 MB each
+      files: 5, // ccd_file, edge_file, membership_file, plus form fields
+    },
+  });
   await fastify.register(jwtPlugin);
 
   // Routes (prefix /api so Next.js proxy /api/:path* forwards correctly)

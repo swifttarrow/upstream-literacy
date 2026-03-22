@@ -133,6 +133,35 @@ export async function finalizeIngestionJob(jobId: string): Promise<void> {
   }
 }
 
+/** Increment job counts when a record reaches a terminal status (for live progress updates) */
+async function incrementJobCounts(jobId: string, status: string): Promise<void> {
+  if (status === 'succeeded') {
+    await pool.query(
+      `UPDATE district_ingestion_jobs
+       SET succeeded_count = COALESCE(succeeded_count, 0) + 1,
+           updated_at = now()
+       WHERE id = $1`,
+      [jobId]
+    );
+  } else if (status === 'succeeded_with_warnings') {
+    await pool.query(
+      `UPDATE district_ingestion_jobs
+       SET warning_count = COALESCE(warning_count, 0) + 1,
+           updated_at = now()
+       WHERE id = $1`,
+      [jobId]
+    );
+  } else if (status === 'failed') {
+    await pool.query(
+      `UPDATE district_ingestion_jobs
+       SET failed_count = COALESCE(failed_count, 0) + 1,
+           updated_at = now()
+       WHERE id = $1`,
+      [jobId]
+    );
+  }
+}
+
 /** Update a single record's status within a job */
 export async function updateJobRecord(
   jobId: string,
@@ -159,6 +188,7 @@ export async function updateJobRecord(
       candidateId,
     ]
   );
+  await incrementJobCounts(jobId, status);
 }
 
 /** Fetch job with records for progress display */
@@ -228,6 +258,9 @@ export async function processIngestionJob(jobId: string): Promise<void> {
       };
       if (!record.district_type) {
         warnings.push('district_type missing — defaulted to unknown');
+      }
+      if (record.latitude == null || record.longitude == null) {
+        warnings.push('Missing coordinates — not in map view until geocoded');
       }
 
       const client = await pool.connect();

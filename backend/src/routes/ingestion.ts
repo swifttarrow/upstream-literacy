@@ -1,3 +1,7 @@
+import crypto from 'crypto';
+import { Readable, Writable } from 'stream';
+import { pipeline } from 'stream/promises';
+import csv from 'csv-parser';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db/index.js';
@@ -12,11 +16,190 @@ import {
 } from '../services/ingestion.js';
 import { sendIngestionJob } from '../jobs/ingestion-worker.js';
 import { insertAuditLog } from '../services/audit.js';
+import { getPresignedPutUrl, getObjectStream, isS3Configured } from '../lib/s3.js';
+
+/** Parse a single CSV line respecting quoted fields (handles commas inside quotes). */
+function parseCsvLine(line: string, delim = ','): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      inQuotes = !inQuotes;
+    } else if (inQuotes) {
+      current += c;
+    } else if (c === delim) {
+      result.push(current.trim().replace(/^"|"$/g, ''));
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  result.push(current.trim().replace(/^"|"$/g, ''));
+  return result;
+}
+
+// CSV parser: returns array of row objects keyed by header. Handles quoted fields, BOM, and tab delimiter.
+function parseCsv(text: string): Record<string, string>[] {
+  const cleaned = text.replace(/\uFEFF/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = cleaned.split('\n').filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const delim = lines[0].includes('\t') && !lines[0].includes(',') ? '\t' : ',';
+  const headers = parseCsvLine(lines[0], delim).map((h) => h.replace(/^"|"$/g, ''));
+  return lines.slice(1).map((line) => {
+    const vals = parseCsvLine(line, delim);
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = vals[i] ?? ''; });
+    return row;
+  });
+}
+
+// Get value by trying multiple column name variants (case-insensitive, ignores underscores/dashes)
+function getCol(row: Record<string, string>, ...names: string[]): string {
+  const normalize = (s: string) => s.toUpperCase().replace(/[-_\s]/g, '');
+  const normNames = new Set(names.map(normalize));
+  for (const key of Object.keys(row)) {
+    if (normNames.has(normalize(key))) return row[key] ?? '';
+  }
+  return '';
+}
+
+// Detect the LEAID column across NCES file variants (LEAID, LEA_ID, NCESID, etc.)
+function detectLeaid(row: Record<string, string>): string | undefined {
+  const val = getCol(row, 'LEAID', 'LEA_ID', 'NCESID', 'LEA_ID_NUM');
+  return val && val.trim() ? val.trim() : undefined;
+}
+
+/** Normalize LEAID for consistent join: strip hyphens, pad to 7 digits. CCD and EDGE may use different formats. */
+function normalizeLeaid(leaid: string): string {
+  const digits = leaid.replace(/[^0-9]/g, '');
+  return digits.padStart(7, '0').slice(0, 7);
+}
+
+/** Stream-parse CSV from R2 into array of rows. */
+async function streamCsvToRows(stream: Readable): Promise<Record<string, string>[]> {
+  const rows: Record<string, string>[] = [];
+  await pipeline(
+    stream,
+    csv(),
+    new Writable({
+      objectMode: true,
+      write(row: Record<string, string>, _enc, cb) {
+        rows.push(row);
+        cb();
+      },
+    })
+  );
+  return rows;
+}
+
+/** Enrollment column names: CCD Directory has none; CCD Membership has LEA_ENR, TOTAL, STUDENT_COUNT, etc. */
+const ENROLLMENT_COLS = ['LEA_ENR', 'MEMBER', 'ENROLLMENT', 'TOTAL', 'TOTMENROL', 'MEMBERSHIP', 'TOTAL_IND', 'STUDENT_COUNT'];
+
+function getEnrollment(row: Record<string, string>): number | null {
+  const str = getCol(row, ...ENROLLMENT_COLS);
+  if (!str?.trim()) return null;
+  const n = parseInt(str.replace(/,/g, ''), 10);
+  return !isNaN(n) && n >= 0 ? n : null;
+}
+
+const KNOWN_LAT_COLS = ['LAT', 'LATY', 'LATITUDE', 'Y', 'POINT_Y', 'LAT1516', 'LAT1617', 'LAT1718', 'LAT1819'];
+const KNOWN_LON_COLS = ['LON', 'LONY', 'LONGITUDE', 'X', 'POINT_X', 'LON1516', 'LON1617', 'LON1718', 'LON1819'];
+const KNOWN_LOCALE_COLS = ['LOCALE', 'LOCALE_CD', 'LOCALE17', 'LOCALE15', 'LCITY15'];
+
+/** NCES urban-centric locale: 11-13 City, 21-23 Suburb, 31-33 Town, 41-43 Rural */
+function deriveLocaleFromCode(code: string | null): {
+  locale_code: string | null;
+  locale_type: string | null;
+  locale_subtype: string | null;
+  locale_size: string | null;
+  district_type: string;
+} {
+  if (!code?.trim()) {
+    return { locale_code: null, locale_type: null, locale_subtype: null, locale_size: null, district_type: 'unknown' };
+  }
+  const num = parseInt(code.replace(/\D/g, ''), 10);
+  if (isNaN(num) || num < 11 || num > 43) {
+    return { locale_code: code.trim(), locale_type: null, locale_subtype: null, locale_size: null, district_type: 'unknown' };
+  }
+  const tens = Math.floor(num / 10);
+  const ones = num % 10;
+  const typeMap: Record<number, string> = { 1: 'City', 2: 'Suburb', 3: 'Town', 4: 'Rural' };
+  const locale_type = typeMap[tens] ?? null;
+  const subtypeByOnes: Record<number, string> = {
+    1: 'Large', 2: 'Midsize', 3: 'Small',
+  };
+  const subtypeByOnesTownRural: Record<number, string> = {
+    1: 'Fringe', 2: 'Distant', 3: 'Remote',
+  };
+  const locale_subtype =
+    tens <= 2 ? subtypeByOnes[ones] ?? null : subtypeByOnesTownRural[ones] ?? null;
+  const sizeMap: Record<number, string> = { 1: 'Large', 2: 'Medium', 3: 'Small' };
+  const locale_size =
+    tens <= 2 && ones >= 1 && ones <= 3 ? sizeMap[ones] ?? null : null;
+  const district_type =
+    locale_size === 'Large' ? 'large' : locale_size === 'Medium' ? 'mid' : locale_size === 'Small' ? 'small' : 'unknown';
+  return {
+    locale_code: String(num).padStart(2, '0'),
+    locale_type,
+    locale_subtype,
+    locale_size: locale_size ?? null,
+    district_type,
+  };
+}
+
+/** Get lat/lon from row. If known columns fail, auto-detect by scanning for numeric values in valid ranges. */
+function getLatLon(
+  row: Record<string, string>,
+  edgeColumns: string[],
+  sampleRows: Record<string, string>[]
+): { lat: string; lon: string } | null {
+  const latStr = getCol(row, ...KNOWN_LAT_COLS);
+  const lonStr = getCol(row, ...KNOWN_LON_COLS);
+  if (latStr && lonStr) return { lat: latStr, lon: lonStr };
+
+  // Auto-detect: find columns with values in lat (-90 to 90) and lon (-180 to 180) ranges.
+  // Prefer columns whose names suggest coordinates; avoid ID-like columns (LEAID, FIPS, etc.).
+  const skipCols = new Set(['LEAID', 'LEA_ID', 'NCESID', 'STFIP', 'OPSTFIPS', 'CNTY', 'OBJECTID']);
+  const rowsToCheck = [row, ...sampleRows].slice(0, 5);
+  let bestLat: { col: string; score: number } | null = null;
+  let bestLon: { col: string; score: number } | null = null;
+
+  for (const col of edgeColumns) {
+    const key = col.toUpperCase().replace(/[-_\s]/g, '');
+    if (skipCols.has(col) || skipCols.has(key)) continue;
+    const vals = rowsToCheck.map((r) => parseFloat(String(r[col] ?? '').trim()));
+    if (vals.length === 0 || vals.some((v) => isNaN(v))) continue;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const hasDecimals = vals.some((v) => v !== Math.floor(v));
+    const nameScore = (name: string) => {
+      const n = name.toLowerCase();
+      if (n.includes('lat') || n === 'y') return 2;
+      if (n.includes('lon') || n === 'x') return 2;
+      return hasDecimals ? 1 : 0; // Prefer columns with decimals (coords) over integers (IDs)
+    };
+    if (min >= -90 && max <= 90 && (!bestLat || nameScore(col) > bestLat.score)) {
+      bestLat = { col, score: nameScore(col) };
+    }
+    if (min >= -180 && max <= 180 && (!bestLon || nameScore(col) > bestLon.score)) {
+      bestLon = { col, score: nameScore(col) };
+    }
+  }
+  if (bestLat && bestLon && bestLat.col !== bestLon.col) {
+    return { lat: String(row[bestLat.col] ?? '').trim(), lon: String(row[bestLon.col] ?? '').trim() };
+  }
+  return null;
+}
 
 const candidateFilterSchema = z.object({
   search: z.string().optional(),
   state: z.string().optional(),
   status: z.string().optional(),
+  district_type: z.enum(['large', 'mid', 'small']).optional(),
+  enrollment_min: z.coerce.number().int().min(0).optional(),
+  enrollment_max: z.coerce.number().int().min(0).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -25,6 +208,9 @@ const mapFilterSchema = z.object({
   search: z.string().optional(),
   state: z.string().optional(),
   status: z.string().optional(),
+  district_type: z.enum(['large', 'mid', 'small']).optional(),
+  enrollment_min: z.coerce.number().int().min(0).optional(),
+  enrollment_max: z.coerce.number().int().min(0).optional(),
 });
 
 const triggerSchema = z.object({
@@ -64,7 +250,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, page, limit } = parsed.data;
+      const { search, state, status, district_type, enrollment_min, enrollment_max, page, limit } = parsed.data;
       const offset = (page - 1) * limit;
 
       const conditions: string[] = [];
@@ -83,6 +269,18 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         conditions.push(`dc.status = $${idx++}`);
         values.push(status);
       }
+      if (district_type) {
+        conditions.push(`dc.district_type = $${idx++}`);
+        values.push(district_type);
+      }
+      if (enrollment_min != null) {
+        conditions.push(`dc.enrollment >= $${idx++}`);
+        values.push(enrollment_min);
+      }
+      if (enrollment_max != null) {
+        conditions.push(`dc.enrollment <= $${idx++}`);
+        values.push(enrollment_max);
+      }
 
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -95,8 +293,10 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       values.push(limit, offset);
       const result = await pool.query(
         `SELECT dc.id, dc.nces_district_id, dc.name, dc.state, dc.district_type,
+                dc.locale_code, dc.locale_type, dc.locale_subtype, dc.locale_size,
                 dc.status, dc.missing_data_indicator, dc.last_refresh_at,
-                dc.district_id, dc.created_at
+                dc.district_id, dc.enrollment, dc.nces_year, dc.created_at,
+                (dc.latitude IS NULL OR dc.longitude IS NULL) AS missing_coordinates
          FROM district_candidates dc
          ${where}
          ORDER BY dc.name
@@ -124,7 +324,9 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
            COUNT(*) FILTER (WHERE status = 'ingested') AS ingested,
            COUNT(*) FILTER (WHERE status = 'ingested_with_warnings') AS ingested_with_warnings,
            COUNT(*) FILTER (WHERE status = 'failed') AS failed,
-           COUNT(*) AS total
+           COUNT(*) AS total,
+           COUNT(*) FILTER (WHERE latitude IS NOT NULL AND longitude IS NOT NULL) AS with_coordinates,
+           COUNT(*) FILTER (WHERE latitude IS NULL OR longitude IS NULL) AS without_coordinates
          FROM district_candidates`
       );
 
@@ -144,7 +346,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status } = parsed.data;
+      const { search, state, status, district_type, enrollment_min, enrollment_max } = parsed.data;
 
       const conditions: string[] = ['dc.latitude IS NOT NULL', 'dc.longitude IS NOT NULL'];
       const values: unknown[] = [];
@@ -162,8 +364,27 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         conditions.push(`dc.status = $${idx++}`);
         values.push(status);
       }
+      if (district_type) {
+        conditions.push(`dc.district_type = $${idx++}`);
+        values.push(district_type);
+      }
+      if (enrollment_min != null) {
+        conditions.push(`dc.enrollment >= $${idx++}`);
+        values.push(enrollment_min);
+      }
+      if (enrollment_max != null) {
+        conditions.push(`dc.enrollment <= $${idx++}`);
+        values.push(enrollment_max);
+      }
 
       const where = `WHERE ${conditions.join(' AND ')}`;
+
+      // Count total matching (with coords) for accurate "missing" display
+      const countResult = await pool.query(
+        `SELECT COUNT(*) FROM district_candidates dc ${where}`,
+        values.slice(0, idx - 1)
+      );
+      const totalWithCoordinates = parseInt(countResult.rows[0].count);
 
       values.push(500);
       const result = await pool.query(
@@ -175,7 +396,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         values
       );
 
-      return reply.send({ districts: result.rows });
+      return reply.send({ districts: result.rows, total_with_coordinates: totalWithCoordinates });
     }
   );
 
@@ -235,6 +456,13 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       }
 
       const quality = assessDataQuality(candidate);
+      const missingCoordinates =
+        candidate.latitude == null || candidate.longitude == null;
+      const missingFields = [
+        ...quality.missing_required,
+        ...quality.missing_recommended,
+        ...(missingCoordinates ? ['coordinates'] : []),
+      ];
 
       // Log preview audit
       await insertAuditLog(userId, 'ingestion_preview_viewed', 'district_candidate', id, {
@@ -242,7 +470,10 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       });
 
       return reply.send({
-        candidate,
+        candidate: {
+          ...candidate,
+          missing_coordinates: missingCoordinates,
+        },
         quality,
         existing_attributes: existingAttributes,
         source_metadata: {
@@ -256,7 +487,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           district_type: candidate.district_type,
           nces_district_id: candidate.nces_district_id,
         },
-        missing_fields: [...quality.missing_required, ...quality.missing_recommended],
+        missing_fields: missingFields,
       });
     }
   );
@@ -588,6 +819,744 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
       );
 
       return reply.send({ audit_entries: result.rows });
+    }
+  );
+
+  // POST /admin/ingestion/upload-url — get presigned URL for direct S3/R2 upload (all files go through R2)
+  const uploadUrlSchema = z.object({
+    purpose: z.enum(['ccd', 'edge', 'membership']),
+    filename: z.string().min(1),
+  });
+  fastify.post(
+    '/admin/ingestion/upload-url',
+    { preHandler: [authenticate, requireModerator] },
+    async (request, reply) => {
+      if (!isS3Configured()) {
+        return reply.status(503).send({
+          error: 's3_not_configured',
+          message: 'Cloud storage is not configured. Set S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY (and S3_ENDPOINT for R2).',
+        });
+      }
+      const parsed = uploadUrlSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
+      }
+      const { purpose, filename } = parsed.data;
+      const ext = filename.toLowerCase().endsWith('.csv') ? '' : '.csv';
+      const key = `ingestion/${purpose}/${crypto.randomUUID()}${ext}`;
+      const uploadUrl = await getPresignedPutUrl(key, { contentType: 'text/csv', expiresIn: 3600 });
+      if (!uploadUrl) {
+        return reply.status(500).send({ error: 'presign_failed', message: 'Failed to generate upload URL' });
+      }
+      return reply.send({ uploadUrl, objectKey: key, expiresIn: 3600 });
+    }
+  );
+
+  // POST /admin/ingestion/process-membership — stream parse from S3 and update enrollment on district_candidates
+  const processMembershipSchema = z.object({ objectKey: z.string().min(1).startsWith('ingestion/membership/') });
+  fastify.post(
+    '/admin/ingestion/process-membership',
+    { preHandler: [authenticate, requireModerator] },
+    async (request, reply) => {
+      const userId = request.jwtUser!.userId;
+      const parsed = processMembershipSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
+      }
+      const { objectKey } = parsed.data;
+      const stream = await getObjectStream(objectKey);
+      if (!stream) {
+        return reply.status(400).send({
+          error: 's3_not_configured_or_missing',
+          message: 'S3 is not configured or the file was not found. Ensure the upload completed successfully.',
+        });
+      }
+      const enrollmentMap = new Map<string, number>();
+      const errors: string[] = [];
+      let rowCount = 0;
+      try {
+        await pipeline(
+          stream,
+          csv(),
+          new Writable({
+            objectMode: true,
+            write(row: Record<string, string>, _enc, cb) {
+              rowCount++;
+              try {
+                const leaid = detectLeaid(row);
+                const enr = getEnrollment(row);
+                if (leaid && enr != null) {
+                  const norm = normalizeLeaid(leaid);
+                  const existing = enrollmentMap.get(norm) ?? 0;
+                  enrollmentMap.set(norm, existing + enr);
+                }
+              } catch (e) {
+                errors.push(`Row ${rowCount}: ${(e as Error).message}`);
+              }
+              cb();
+            },
+          })
+        );
+      } catch (err) {
+        return reply.status(500).send({
+          error: 'parse_error',
+          message: (err as Error).message,
+          rows_parsed: rowCount,
+        });
+      }
+      if (enrollmentMap.size === 0) {
+        return reply.status(400).send({
+          error: 'no_enrollment_data',
+          message: `Parsed ${rowCount} rows but found no LEAID+enrollment pairs. Check file format (expect LEAID/LEA_ID and LEA_ENR/MEMBER/TOTAL).`,
+        });
+      }
+      const BATCH_SIZE = 500;
+      const entries = [...enrollmentMap.entries()];
+      let updated = 0;
+      for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+        const batch = entries.slice(i, i + BATCH_SIZE);
+        const sets = batch.map((_, idx) => `($${idx * 2 + 1}, $${idx * 2 + 2})`).join(', ');
+        const values = batch.flatMap(([leaid, enr]) => [leaid, enr]);
+        const result = await pool.query(
+          `UPDATE district_candidates dc SET enrollment = v.enr, updated_at = now()
+           FROM (VALUES ${sets}) AS v(nces_district_id, enr)
+           WHERE dc.nces_district_id = v.nces_district_id`,
+          values
+        );
+        updated += result.rowCount ?? 0;
+      }
+      await insertAuditLog(userId, 'membership_processed', 'ingestion', objectKey, {
+        rows_parsed: rowCount,
+        enrollment_extracted: enrollmentMap.size,
+        districts_updated: updated,
+      });
+      return reply.send({
+        rows_parsed: rowCount,
+        enrollment_extracted: enrollmentMap.size,
+        districts_updated: updated,
+        parse_errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+      });
+    }
+  );
+
+  // POST /admin/ingestion/process-upload — full ingestion from R2 (CCD + EDGE + optional Membership)
+  const processUploadSchema = z.object({
+    ccd_object_key: z.string().min(1).startsWith('ingestion/ccd/'),
+    edge_object_key: z.string().min(1).startsWith('ingestion/edge/'),
+    membership_object_key: z.string().min(1).startsWith('ingestion/membership/'),
+    nces_year: z.string().optional(),
+  });
+  fastify.post(
+    '/admin/ingestion/process-upload',
+    { preHandler: [authenticate, requireModerator] },
+    async (request, reply) => {
+      const userId = request.jwtUser!.userId;
+      const parsed = processUploadSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
+      }
+      const { ccd_object_key, edge_object_key, membership_object_key, nces_year } = parsed.data;
+      if (!isS3Configured()) {
+        return reply.status(503).send({
+          error: 's3_not_configured',
+          message: 'Cloud storage is not configured. Ensure S3/R2 env vars are set.',
+        });
+      }
+      const ccdStream = await getObjectStream(ccd_object_key);
+      const edgeStream = await getObjectStream(edge_object_key);
+      if (!ccdStream || !edgeStream) {
+        return reply.status(400).send({
+          error: 'files_not_found',
+          message: 'CCD or EDGE file not found in storage. Ensure uploads completed successfully.',
+        });
+      }
+      let ccdRows: Record<string, string>[];
+      let edgeRows: Record<string, string>[];
+      try {
+        [ccdRows, edgeRows] = await Promise.all([
+          streamCsvToRows(ccdStream),
+          streamCsvToRows(edgeStream),
+        ]);
+      } catch (err) {
+        return reply.status(500).send({
+          error: 'parse_error',
+          message: (err as Error).message,
+        });
+      }
+      const enrollmentMap = new Map<string, number>();
+      const memStream = await getObjectStream(membership_object_key);
+      if (!memStream) {
+        return reply.status(400).send({
+          error: 'membership_not_found',
+          message: 'Membership file not found in storage. Ensure upload completed successfully.',
+        });
+      }
+      try {
+        const memRows = await streamCsvToRows(memStream);
+        for (const row of memRows) {
+          const leaid = detectLeaid(row);
+          const enr = getEnrollment(row);
+          if (leaid && enr != null) {
+            const norm = normalizeLeaid(leaid);
+            enrollmentMap.set(norm, (enrollmentMap.get(norm) ?? 0) + enr);
+          }
+        }
+      } catch (err) {
+        return reply.status(500).send({
+          error: 'membership_parse_error',
+          message: (err as Error).message,
+        });
+      }
+      if (ccdRows.length === 0) {
+        return reply.status(400).send({ error: 'ccd_parse_error', message: 'CCD file is empty or has no data rows' });
+      }
+      if (!detectLeaid(ccdRows[0])) {
+        const cols = ccdRows[0] ? Object.keys(ccdRows[0]).join(', ') : 'none';
+        return reply.status(400).send({
+          error: 'ccd_missing_leaid',
+          message: `CCD file must contain a LEAID column. Found columns: ${cols}`,
+        });
+      }
+      if (edgeRows.length === 0) {
+        return reply.status(400).send({ error: 'edge_parse_error', message: 'EDGE file is empty or has no data rows' });
+      }
+      if (!detectLeaid(edgeRows[0])) {
+        return reply.status(400).send({ error: 'edge_missing_leaid', message: 'EDGE file must contain a LEAID column' });
+      }
+      const edgeColumns = edgeRows[0] ? Object.keys(edgeRows[0]) : [];
+      const edgeMap = new Map<string, { lat?: number; lon?: number; localeCode: string | null }>();
+      for (const row of edgeRows) {
+        const leaid = detectLeaid(row);
+        if (!leaid) continue;
+        const norm = normalizeLeaid(leaid);
+        const coords = getLatLon(row, edgeColumns, edgeRows.slice(1, 6));
+        const localeCode = getCol(row, ...KNOWN_LOCALE_COLS)?.trim() || null;
+        const entry = edgeMap.get(norm) ?? { localeCode };
+        if (coords) {
+          const lat = parseFloat(coords.lat);
+          const lon = parseFloat(coords.lon);
+          if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            entry.lat = lat;
+            entry.lon = lon;
+          }
+        }
+        entry.localeCode = localeCode ?? entry.localeCode;
+        edgeMap.set(norm, entry);
+      }
+      const coordsExtracted = [...edgeMap.values()].filter((e) => e.lat != null && e.lon != null).length;
+      if (coordsExtracted === 0) {
+        return reply.status(400).send({
+          error: 'edge_no_coordinates',
+          message: 'EDGE file had no rows with valid coordinates. Use the Public School District file (EDGE_GEOCODE_PUBLICLEA).',
+        });
+      }
+      const candidateIds: string[] = [];
+      const errors: string[] = [];
+      const BATCH_SIZE = 200;
+      interface RowToInsert {
+        paddedLeaid: string;
+        name: string;
+        state: string;
+        districtType: string;
+        enrollment: number | null;
+        ncesYear: string | null;
+        lat: number | null;
+        lon: number | null;
+        geocodedAt: Date | null;
+        localeCode: string | null;
+        localeType: string | null;
+        localeSubtype: string | null;
+        localeSize: string | null;
+      }
+      const rowsToInsert: RowToInsert[] = [];
+      for (const row of ccdRows) {
+        const leaid = detectLeaid(row);
+        if (!leaid) continue;
+        const paddedLeaid = normalizeLeaid(leaid);
+        const name = getCol(row, 'LEA_NAME', 'LEANM', 'NAME', 'DISTNAME', 'LNAME', 'SCH_NAME') || '';
+        const state = getCol(row, 'ST', 'STABR', 'STABBR', 'STATE', 'LEASTATE', 'STATEABB') || '';
+        const enrollment = enrollmentMap.get(paddedLeaid) ?? getEnrollment(row) ?? null;
+        if (!name || !state) {
+          errors.push(`Row with LEAID=${paddedLeaid} missing name or state — skipped`);
+          continue;
+        }
+        const edgeData = edgeMap.get(paddedLeaid);
+        const locale = deriveLocaleFromCode(edgeData?.localeCode ?? null);
+        rowsToInsert.push({
+          paddedLeaid,
+          name,
+          state: state.toUpperCase(),
+          districtType: locale.district_type,
+          enrollment: isNaN(enrollment as number) ? null : enrollment,
+          ncesYear: nces_year ?? null,
+          lat: edgeData?.lat ?? null,
+          lon: edgeData?.lon ?? null,
+          geocodedAt: edgeData?.lat != null ? new Date() : null,
+          localeCode: locale.locale_code,
+          localeType: locale.locale_type,
+          localeSubtype: locale.locale_subtype,
+          localeSize: locale.locale_size,
+        });
+      }
+      const COLS_PER_ROW = 13;
+      for (let i = 0; i < rowsToInsert.length; i += BATCH_SIZE) {
+        const batch = rowsToInsert.slice(i, i + BATCH_SIZE);
+        const values: unknown[] = [];
+        const placeholders: string[] = [];
+        batch.forEach((r, idx) => {
+          const base = idx * COLS_PER_ROW + 1;
+          placeholders.push(
+            `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, now(), now())`
+          );
+          values.push(
+            r.paddedLeaid, r.name, r.state, r.districtType, r.enrollment, r.ncesYear,
+            r.lat, r.lon, r.geocodedAt, r.localeCode, r.localeType, r.localeSubtype, r.localeSize
+          );
+        });
+        try {
+          const result = await pool.query(
+            `INSERT INTO district_candidates
+               (nces_district_id, name, state, district_type, enrollment, nces_year,
+                latitude, longitude, geocoded_at, locale_code, locale_type, locale_subtype, locale_size,
+                last_refresh_at, updated_at)
+             VALUES ${placeholders.join(', ')}
+             ON CONFLICT (nces_district_id) DO UPDATE SET
+               name = EXCLUDED.name, state = EXCLUDED.state, district_type = EXCLUDED.district_type,
+               enrollment = EXCLUDED.enrollment, nces_year = EXCLUDED.nces_year,
+               latitude = COALESCE(EXCLUDED.latitude, district_candidates.latitude),
+               longitude = COALESCE(EXCLUDED.longitude, district_candidates.longitude),
+               geocoded_at = COALESCE(EXCLUDED.geocoded_at, district_candidates.geocoded_at),
+               locale_code = COALESCE(EXCLUDED.locale_code, district_candidates.locale_code),
+               locale_type = COALESCE(EXCLUDED.locale_type, district_candidates.locale_type),
+               locale_subtype = COALESCE(EXCLUDED.locale_subtype, district_candidates.locale_subtype),
+               locale_size = COALESCE(EXCLUDED.locale_size, district_candidates.locale_size),
+               last_refresh_at = now(), updated_at = now()
+             RETURNING id`,
+            values
+          );
+          candidateIds.push(...result.rows.map((row: { id: string }) => row.id));
+        } catch (err) {
+          batch.forEach((r) => errors.push(`Failed to upsert LEAID=${r.paddedLeaid}: ${(err as Error).message}`));
+        }
+      }
+      if (candidateIds.length === 0) {
+        return reply.status(400).send({
+          error: 'no_valid_rows',
+          message: 'No valid district rows could be processed from the CCD file.',
+          parse_errors: errors.length > 0 ? errors : undefined,
+        });
+      }
+      const jobId = await createIngestionJob({ candidateIds, createdBy: userId });
+      await pool.query(
+        `UPDATE district_candidates SET status = 'in_progress', updated_at = now() WHERE id = ANY($1::uuid[])`,
+        [candidateIds]
+      );
+      await insertAuditLog(userId, 'ingestion_started', 'district_ingestion_job', jobId, {
+        source: 'r2_upload',
+        ccd_key: ccd_object_key,
+        edge_key: edge_object_key,
+        membership_key: membership_object_key,
+        nces_year: nces_year,
+        district_count: candidateIds.length,
+      });
+      const queued = await sendIngestionJob(jobId);
+      if (!queued) {
+        processIngestionJob(jobId).catch((err) => console.error(`Ingestion job ${jobId} failed:`, err));
+      }
+      const withCoords = rowsToInsert.filter((r) => r.lat != null).length;
+      return reply.status(202).send({
+        job_id: jobId,
+        total_count: candidateIds.length,
+        coordinates_diagnostic: {
+          with_coordinates: withCoords,
+          without_coordinates: rowsToInsert.length - withCoords,
+        },
+        enrollment_diagnostic: {
+          with_enrollment: rowsToInsert.filter((r) => r.enrollment != null).length,
+          from_membership_file: enrollmentMap.size > 0,
+        },
+        parse_errors: errors.length > 0 ? errors : undefined,
+      });
+    }
+  );
+
+  // POST /admin/ingestion/upload/validate — parse files and return diagnostics without inserting
+  fastify.post(
+    '/admin/ingestion/upload/validate',
+    { preHandler: [authenticate, requireModerator] },
+    async (request, reply) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parts = (request as any).parts() as AsyncIterable<any>;
+      const files: Record<string, { name: string; content: string }> = {};
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) chunks.push(chunk as Buffer);
+          files[part.fieldname] = {
+            name: part.filename ?? part.fieldname,
+            content: Buffer.concat(chunks).toString('utf8'),
+          };
+        }
+      }
+      if (!files.ccd_file || !files.edge_file) {
+        return reply.status(400).send({ error: 'Both ccd_file and edge_file are required' });
+      }
+      const ccdRows = parseCsv(files.ccd_file.content);
+      const edgeRows = parseCsv(files.edge_file.content);
+      let membershipEnrollmentCount = 0;
+      if (files.membership_file?.content) {
+        const memRows = parseCsv(files.membership_file.content);
+        for (const row of memRows) {
+          const leaid = detectLeaid(row);
+          const enr = getEnrollment(row);
+          if (leaid && enr != null) membershipEnrollmentCount++;
+        }
+      }
+      const ccdCols = ccdRows[0] ? Object.keys(ccdRows[0]) : [];
+      const edgeCols = edgeRows[0] ? Object.keys(edgeRows[0]) : [];
+      const edgeMap = new Map<string, { lat: number; lon: number; localeCode: string | null }>();
+      let localeExtracted = 0;
+      for (const row of edgeRows) {
+        const leaid = detectLeaid(row);
+        const coords = getLatLon(row, edgeCols, edgeRows.slice(1, 6));
+        const localeCode = getCol(row, ...KNOWN_LOCALE_COLS)?.trim() || null;
+        if (localeCode) localeExtracted++;
+        if (leaid && coords) {
+          const lat = parseFloat(coords.lat);
+          const lon = parseFloat(coords.lon);
+          if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            edgeMap.set(normalizeLeaid(leaid), { lat, lon, localeCode });
+          }
+        }
+      }
+      let matched = 0;
+      const ccdLeaids = new Set<string>();
+      for (const row of ccdRows) {
+        const leaid = detectLeaid(row);
+        if (!leaid) continue;
+        const norm = normalizeLeaid(leaid);
+        ccdLeaids.add(norm);
+        if (edgeMap.has(norm)) matched++;
+      }
+      const sampleCcdLeaid = ccdRows[0] ? detectLeaid(ccdRows[0]) : null;
+      const sampleEdgeLeaid = edgeRows[0] ? detectLeaid(edgeRows[0]) : null;
+      return reply.send({
+        ccd: { rows: ccdRows.length, columns: ccdCols, sample_leaid: sampleCcdLeaid, sample_normalized: sampleCcdLeaid ? normalizeLeaid(sampleCcdLeaid) : null },
+        membership: files.membership_file
+          ? { rows: parseCsv(files.membership_file.content).length, enrollment_extracted: membershipEnrollmentCount }
+          : null,
+        edge: {
+          rows: edgeRows.length,
+          columns: edgeCols,
+          coords_extracted: edgeMap.size,
+          locale_extracted: localeExtracted,
+          sample_leaid: sampleEdgeLeaid,
+          sample_normalized: sampleEdgeLeaid ? normalizeLeaid(sampleEdgeLeaid) : null,
+          sample_first_row: edgeRows[0] ? Object.fromEntries(Object.entries(edgeRows[0]).slice(0, 15)) : null,
+        },
+        match: {
+          ccd_unique_leaids: ccdLeaids.size,
+          matched_by_leaid: matched,
+          unmatched: ccdLeaids.size - matched,
+        },
+      });
+    }
+  );
+
+  // POST /admin/ingestion/upload — dual NCES CCD + EDGE file upload
+  fastify.post(
+    '/admin/ingestion/upload',
+    { preHandler: [authenticate, requireModerator] },
+    async (request, reply) => {
+      const userId = request.jwtUser!.userId;
+
+      // Collect multipart parts (cast needed: @fastify/multipart augments at root workspace level)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parts = (request as any).parts() as AsyncIterable<any>;
+      const files: Record<string, { name: string; content: string }> = {};
+      const fields: Record<string, string> = {};
+
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) {
+            chunks.push(chunk as Buffer);
+          }
+          files[part.fieldname] = {
+            name: part.filename ?? part.fieldname,
+            content: Buffer.concat(chunks).toString('utf8'),
+          };
+        } else {
+          fields[part.fieldname] = part.value as string;
+        }
+      }
+
+      if (!files.ccd_file) {
+        return reply.status(400).send({ error: 'ccd_file_required', message: 'ccd_file is required' });
+      }
+      if (!files.edge_file) {
+        return reply.status(400).send({ error: 'edge_file_required', message: 'edge_file is required' });
+      }
+
+      // Build LEAID → enrollment from optional CCD LEA Membership file (C052)
+      // Directory file has NO enrollment; enrollment is in the separate Membership file
+      const enrollmentMap = new Map<string, number>();
+      if (files.membership_file?.content) {
+        const memRows = parseCsv(files.membership_file.content);
+        for (const row of memRows) {
+          const leaid = detectLeaid(row);
+          const enr = getEnrollment(row);
+          if (leaid && enr != null) {
+            enrollmentMap.set(normalizeLeaid(leaid), enr);
+          }
+        }
+      }
+
+      // Parse CCD CSV
+      const ccdRows = parseCsv(files.ccd_file.content);
+      if (ccdRows.length === 0) {
+        return reply.status(400).send({ error: 'ccd_parse_error', message: 'CCD file is empty or has no data rows' });
+      }
+      // Validate CCD has LEAID-like column
+      if (!detectLeaid(ccdRows[0])) {
+        const cols = ccdRows[0] ? Object.keys(ccdRows[0]).join(', ') : 'none';
+        return reply.status(400).send({
+          error: 'ccd_missing_leaid',
+          message: `CCD file must contain a LEAID column (or LEA_ID). Found columns: ${cols}`,
+        });
+      }
+
+      // Parse EDGE CSV
+      const edgeRows = parseCsv(files.edge_file.content);
+      if (edgeRows.length === 0) {
+        return reply.status(400).send({ error: 'edge_parse_error', message: 'EDGE file is empty or has no data rows' });
+      }
+      if (!detectLeaid(edgeRows[0])) {
+        return reply.status(400).send({ error: 'edge_missing_leaid', message: 'EDGE file must contain a LEAID column' });
+      }
+
+      // Build LEAID → { lat, lon, localeCode } from EDGE (LOCALE is in geocode file)
+      const edgeColumns = edgeRows[0] ? Object.keys(edgeRows[0]) : [];
+      const edgeMap = new Map<string, { lat?: number; lon?: number; localeCode: string | null }>();
+      for (const row of edgeRows) {
+        const leaid = detectLeaid(row);
+        if (!leaid) continue;
+        const norm = normalizeLeaid(leaid);
+        const coords = getLatLon(row, edgeColumns, edgeRows.slice(1, 6));
+        const localeCode = getCol(row, ...KNOWN_LOCALE_COLS)?.trim() || null;
+        const entry = edgeMap.get(norm) ?? { localeCode };
+        if (coords) {
+          const lat = parseFloat(coords.lat);
+          const lon = parseFloat(coords.lon);
+          if (!isNaN(lat) && !isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            entry.lat = lat;
+            entry.lon = lon;
+          }
+        }
+        entry.localeCode = localeCode ?? entry.localeCode;
+        edgeMap.set(norm, entry);
+      }
+
+      const coordsExtracted = [...edgeMap.values()].filter((e) => e.lat != null && e.lon != null).length;
+      if (coordsExtracted === 0) {
+        const edgeCols = edgeRows[0] ? Object.keys(edgeRows[0]).join(', ') : 'none';
+        return reply.status(400).send({
+          error: 'edge_no_coordinates',
+          message:
+            'EDGE file had no rows with valid coordinates. Ensure you use the Public School District file (EDGE_GEOCODE_PUBLICLEA), not the School file. The file must contain latitude/longitude columns (e.g. LAT/LON, Latitude/Longitude, or X/Y).',
+          diagnostic: {
+            edge_rows: edgeRows.length,
+            edge_columns: edgeCols,
+            first_edge_row_keys: edgeColumns.slice(0, 20),
+          },
+        });
+      }
+
+      // Optional nces_year from fields or inferred from filename
+      const ncesYear = fields.nces_year ?? null;
+
+      // Upsert district_candidates from CCD rows (batched for performance)
+      const candidateIds: string[] = [];
+      const errors: string[] = [];
+      const BATCH_SIZE = 200;
+
+      interface RowToInsert {
+        paddedLeaid: string;
+        name: string;
+        state: string;
+        districtType: string;
+        enrollment: number | null;
+        ncesYear: string | null;
+        lat: number | null;
+        lon: number | null;
+        geocodedAt: Date | null;
+        localeCode: string | null;
+        localeType: string | null;
+        localeSubtype: string | null;
+        localeSize: string | null;
+      }
+
+      const rowsToInsert: RowToInsert[] = [];
+      for (const row of ccdRows) {
+        const leaid = detectLeaid(row);
+        if (!leaid) continue;
+        const paddedLeaid = normalizeLeaid(leaid);
+
+        const name =
+          getCol(row, 'LEA_NAME', 'LEANM', 'NAME', 'DISTNAME', 'LNAME', 'SCH_NAME') || '';
+        const state =
+          getCol(row, 'ST', 'STABR', 'STABBR', 'STATE', 'LEASTATE', 'STATEABB') || '';
+        // Prefer enrollment from Membership file (Directory file has none); fallback to CCD row
+        const enrollment =
+          enrollmentMap.get(paddedLeaid) ?? getEnrollment(row) ?? null;
+
+        if (!name || !state) {
+          errors.push(`Row with LEAID=${paddedLeaid} missing name or state — skipped`);
+          continue;
+        }
+
+        const edgeData = edgeMap.get(paddedLeaid);
+        const locale = deriveLocaleFromCode(edgeData?.localeCode ?? null);
+        rowsToInsert.push({
+          paddedLeaid,
+          name,
+          state: state.toUpperCase(),
+          districtType: locale.district_type,
+          enrollment: isNaN(enrollment as number) ? null : enrollment,
+          ncesYear,
+          lat: edgeData?.lat ?? null,
+          lon: edgeData?.lon ?? null,
+          geocodedAt: edgeData?.lat != null ? new Date() : null,
+          localeCode: locale.locale_code,
+          localeType: locale.locale_type,
+          localeSubtype: locale.locale_subtype,
+          localeSize: locale.locale_size,
+        });
+      }
+
+      for (let i = 0; i < rowsToInsert.length; i += BATCH_SIZE) {
+        const batch = rowsToInsert.slice(i, i + BATCH_SIZE);
+        const values: unknown[] = [];
+        const placeholders: string[] = [];
+        const COLS_PER_ROW = 13;
+        batch.forEach((r, idx) => {
+          const base = idx * COLS_PER_ROW + 1;
+          placeholders.push(
+            `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, now(), now())`
+          );
+          values.push(
+            r.paddedLeaid,
+            r.name,
+            r.state,
+            r.districtType,
+            r.enrollment,
+            r.ncesYear,
+            r.lat,
+            r.lon,
+            r.geocodedAt,
+            r.localeCode,
+            r.localeType,
+            r.localeSubtype,
+            r.localeSize
+          );
+        });
+        try {
+          const result = await pool.query(
+            `INSERT INTO district_candidates
+               (nces_district_id, name, state, district_type, enrollment, nces_year,
+                latitude, longitude, geocoded_at, locale_code, locale_type, locale_subtype, locale_size,
+                last_refresh_at, updated_at)
+             VALUES ${placeholders.join(', ')}
+             ON CONFLICT (nces_district_id) DO UPDATE SET
+               name = EXCLUDED.name,
+               state = EXCLUDED.state,
+               district_type = EXCLUDED.district_type,
+               enrollment = EXCLUDED.enrollment,
+               nces_year = EXCLUDED.nces_year,
+               latitude = COALESCE(EXCLUDED.latitude, district_candidates.latitude),
+               longitude = COALESCE(EXCLUDED.longitude, district_candidates.longitude),
+               geocoded_at = COALESCE(EXCLUDED.geocoded_at, district_candidates.geocoded_at),
+               locale_code = COALESCE(EXCLUDED.locale_code, district_candidates.locale_code),
+               locale_type = COALESCE(EXCLUDED.locale_type, district_candidates.locale_type),
+               locale_subtype = COALESCE(EXCLUDED.locale_subtype, district_candidates.locale_subtype),
+               locale_size = COALESCE(EXCLUDED.locale_size, district_candidates.locale_size),
+               last_refresh_at = now(),
+               updated_at = now()
+             RETURNING id`,
+            values
+          );
+          candidateIds.push(...result.rows.map((row) => row.id));
+        } catch (err) {
+          batch.forEach((r) => {
+            errors.push(`Failed to upsert LEAID=${r.paddedLeaid}: ${(err as Error).message}`);
+          });
+        }
+      }
+
+      if (candidateIds.length === 0) {
+        const sampleColumns =
+          ccdRows[0] && Object.keys(ccdRows[0]).length > 0
+            ? ` Found columns: ${Object.keys(ccdRows[0]).slice(0, 15).join(', ')}${Object.keys(ccdRows[0]).length > 15 ? '...' : ''}`
+            : '';
+        const hint =
+          errors.length === 0 && rowsToInsert.length === 0
+            ? ` No rows had a valid LEAID. CCD files must have a column named LEAID (or LEA_ID).${sampleColumns}`
+            : '';
+        return reply.status(400).send({
+          error: 'no_valid_rows',
+          message: `No valid district rows could be processed from the CCD file.${hint}`,
+          parse_errors: errors.length > 0 ? errors : undefined,
+        });
+      }
+
+      // Create ingestion job
+      const jobId = await createIngestionJob({ candidateIds, createdBy: userId });
+
+      // Mark candidates as in_progress
+      await pool.query(
+        `UPDATE district_candidates SET status = 'in_progress', updated_at = now()
+         WHERE id = ANY($1::uuid[])`,
+        [candidateIds]
+      );
+
+      // Audit
+      await insertAuditLog(userId, 'ingestion_started', 'district_ingestion_job', jobId, {
+        source: 'nces_upload',
+        ccd_filename: files.ccd_file.name,
+        edge_filename: files.edge_file.name,
+        nces_year: ncesYear,
+        district_count: candidateIds.length,
+      });
+
+      // Enqueue async
+      const queued = await sendIngestionJob(jobId);
+      if (!queued) {
+        processIngestionJob(jobId).catch((err) => {
+          console.error(`Ingestion job ${jobId} failed:`, err);
+        });
+      }
+
+      const withCoords = rowsToInsert.filter((r) => r.lat != null).length;
+      const withoutCoords = rowsToInsert.filter((r) => r.lat == null).length;
+      const withEnrollment = rowsToInsert.filter((r) => r.enrollment != null).length;
+
+      return reply.status(202).send({
+        job_id: jobId,
+        total_count: candidateIds.length,
+        coordinates_diagnostic: {
+          edge_rows_parsed: edgeRows.length,
+          edge_coords_extracted: coordsExtracted,
+          ccd_districts_processed: rowsToInsert.length,
+          with_coordinates: withCoords,
+          without_coordinates: withoutCoords,
+        },
+        enrollment_diagnostic: {
+          with_enrollment: withEnrollment,
+          without_enrollment: rowsToInsert.length - withEnrollment,
+          from_membership_file: enrollmentMap.size > 0,
+        },
+        parse_errors: errors.length > 0 ? errors : undefined,
+      });
     }
   );
 }

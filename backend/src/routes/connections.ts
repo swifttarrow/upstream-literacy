@@ -238,7 +238,21 @@ export default async function connectionsRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'invalid_tab', valid: ['connected', 'pending_sent', 'pending_received'] });
       }
 
-      return reply.send({ connections: result.rows });
+      // Include pending_received_count so the frontend can default to Received tab when > 0
+      const countResult = await pool.query(
+        `SELECT count(*)::int AS n
+         FROM user_connections uc
+         WHERE (uc.user_a_id = $1 OR uc.user_b_id = $1)
+           AND uc.status = 'pending'
+           AND uc.requested_by_user_id != $1`,
+        [currentUserId]
+      );
+      const pendingReceivedCount = countResult.rows[0]?.n ?? 0;
+
+      return reply.send({
+        connections: result.rows,
+        meta: { pending_received_count: pendingReceivedCount },
+      });
     }
   );
 }

@@ -2,7 +2,6 @@
 const nextConfig = {
   experimental: {
     proxyTimeout: 300000, // 5 min for long uploads (parsing + batch insert)
-    proxyClientMaxBodySize: '100mb', // NCES CCD + EDGE + Membership can exceed 10MB default
   },
   async rewrites() {
     return [

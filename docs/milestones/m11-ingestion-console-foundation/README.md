@@ -22,14 +22,14 @@ Establish the backend foundation for the district data ingestion console: dual N
 ## Success Criteria
 
 ### Automated Verification
-- [ ] Upload endpoint accepts CCD + EDGE CSVs and creates ingestion job
-- [ ] District list API returns records with completeness scores and status
-- [ ] Ingestion job creation persists job record with status
+- [x] Upload endpoint accepts CCD + EDGE CSVs and creates ingestion job
+- [x] District list API returns records with completeness scores and status
+- [x] Ingestion job creation persists job record with status
 - [x] Non-moderator/admin receives 403 on ingestion endpoints
 
 ### Manual Verification
-- [ ] Moderator can upload both CCD and EDGE files via API
-- [ ] Moderator can fetch district list with completeness
+- [x] Moderator can upload both CCD and EDGE files via API
+- [x] Moderator can fetch district list with completeness
 
 ## Tasks
 

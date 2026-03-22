@@ -6,7 +6,7 @@ Maintain an audit log for district ingestion operations per PRD §10.10.
 
 ## Deliverables
 
-- [x] Audit entries for: preview viewed, ingestion started, ingestion completed, ingestion retried, district edited, override applied, override reverted
+- [x] Audit entries for: file uploaded, ingestion started, ingestion completed, district edited, override applied, override reverted
 - [x] Each record: actor, action_type, district_id, job_id (if applicable), before/after (where relevant), timestamp
 - [x] Persist to audit_log_entries or dedicated ingestion_audit table
 - [x] API for admin to query audit by district, actor, date range

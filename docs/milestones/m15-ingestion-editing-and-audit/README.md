@@ -2,9 +2,9 @@
 
 ## Overview
 
-Enable moderators to edit district data after ingestion, maintain audit logs for ingestion operations, and support re-ingestion/refresh per PRD §§10.9–10.11, 11.4.
+Enable moderators to edit district data after ingestion, maintain audit logs for ingestion operations, and support re-ingestion/refresh per PRD §§10.9–10.11, 11.4. District detail shows missing-data flag and field-level missing indicators (not completeness score). NCES year displayed when applicable (multi-year uploads).
 
-**Source:** [District Data Ingestion PRD](../../../prds/district-data-ingestion.md) §§10.9–10.11, 11.4
+**Source:** [District Data Ingestion PRD](../../prds/district-data-ingestion.md) §§10.9–10.11, 11.4
 
 ## Dependencies
 
@@ -15,9 +15,10 @@ Enable moderators to edit district data after ingestion, maintain audit logs for
 | Area | Changes |
 |------|---------|
 | **Post-ingestion edit** | UI to edit normalized fields; preserve source, timestamp, editor, reason; revert override |
+| **District detail display** | Show missing-data flag and field-level missing value indicators (not completeness score); NCES year in header when multi-year data exists |
 | **Edit API** | PATCH district overrides; validation on save; extend existing admin overrides if applicable |
-| **Audit logging** | Log preview viewed, ingestion started/completed/retried, district edited, override applied/reverted |
-| **Re-ingestion** | Allow re-run for ingested district; show current vs incoming preview; warn before overwrite; preserve history |
+| **Audit logging** | Log ingestion started/completed, district edited, override applied/reverted |
+| **Re-ingestion** | Allow re-run for ingested district; show current vs incoming preview; warn before overwrite; preserve history; respect NCES year context |
 
 ## Success Criteria
 

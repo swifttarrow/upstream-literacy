@@ -6,13 +6,13 @@ Replace the 100-district seed approach with a dual file upload. Moderators uploa
 
 ## Deliverables
 
-- [ ] Upload endpoint: `POST /admin/ingestion/upload` — accepts multipart/form-data with **two required files**: `ccd_file` and `edge_file`
-- [ ] Parse CCD district CSV (validate columns: LEAID/NCES id, name, state, enrollment, etc.)
-- [ ] Parse EDGE geocode CSV (validate columns: LEAID, LAT, LON; extract from ZIP or accept pre-extracted CSV)
-- [ ] Build LEAID→(LAT, LON) map from EDGE; join when creating district_candidates from CCD rows
-- [ ] On valid upload: create ingestion job; enqueue async processing; populate latitude/longitude from EDGE where matched
-- [ ] On invalid upload: return 400 with parse/validation errors (indicate which file failed)
-- [ ] Links to download pages: [CCD Data Files](https://nces.ed.gov/ccd/files.asp), [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations)
+- [x] Upload endpoint: `POST /admin/ingestion/upload` — accepts multipart/form-data with **two required files**: `ccd_file` and `edge_file`
+- [x] Parse CCD district CSV (validate columns: LEAID/NCES id, name, state, enrollment, etc.)
+- [x] Parse EDGE geocode CSV (validate columns: LEAID, LAT, LON, LOCALE; extract from ZIP or accept pre-extracted CSV)
+- [x] Build LEAID→(LAT, LON, LOCALE) map from EDGE; join when creating district_candidates from CCD rows; derive locale_code, locale_type, locale_subtype, locale_size, district_type from LOCALE
+- [x] On valid upload: create ingestion job; enqueue async processing; populate latitude/longitude from EDGE where matched
+- [x] On invalid upload: return 400 with parse/validation errors (indicate which file failed)
+- [x] Links to download pages: [CCD Data Files](https://nces.ed.gov/ccd/files.asp), [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations)
 
 ## Notes
 

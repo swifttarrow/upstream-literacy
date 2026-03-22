@@ -13,10 +13,12 @@ Allow moderators to re-run ingestion for already-ingested districts with preview
 - [x] Preserve district_ingestion_events history (append new event, don't delete)
 - [x] Policy: overrides preserved by default, or merge with user choice; document in PRD open questions
 - [x] Re-ingest creates new job; same progress UI
+- [x] NCES year associated with re-ingested data (new upload may be for different year)
 
 ## Notes
 
 - PRD §10.11: show current vs incoming; warn; preserve historical records
+- When multiple NCES years exist, re-ingestion context should reflect the year of the source upload
 - PRD §19 open question: merge with overrides or preserve overrides automatically
 - Recommended: preserve overrides; only update source-backed fields; allow moderator to revert override then re-ingest if desired
 

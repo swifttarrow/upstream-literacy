@@ -428,6 +428,15 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** New PRD defines ingestion console UX, source assumptions, and phased rollout; implementation should reference `docs/prds/district-data-ingestion.md` when building real-data ingestion.
 **Owner:** Developer
 
+### [2026-03-22] Direct upload to S3/R2 for large Membership files
+
+**Context:** CCD LEA Membership file can exceed 650MB; standard form upload hits request size limits (~200MB). User needed a way to upload very large enrollment files.
+**Options considered:** (A) Increase backend/Next.js limits vs (B) presigned URL + direct-to-cloud upload vs (C) URL fetch vs (D) local CLI script.
+**Decision:** Implement presigned S3/R2 upload: frontend gets presigned PUT URL, browser uploads file directly to cloud storage, backend streams and processes from S3.
+**Rationale:** No app-server size limits; industry-standard pattern; works with Cloudflare R2 (S3-compatible, generous free tier) or AWS S3; streaming parse keeps memory bounded for 650MB+ files.
+**Impact:** New `POST /admin/ingestion/upload-url` and `POST /admin/ingestion/process-membership`; S3 client in `backend/src/lib/s3.ts`; Direct upload UI section in Upload modal; `docs/direct-upload-setup.md` for env vars (S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT for R2) and CORS. Enrollment-only flow (districts must already exist from prior CCD+EDGE upload).
+**Owner:** Agent + developer
+
 ### [2026-03-21] Ingestion spec updated: NCES upload UI, auto-ingest, completeness scoring
 
 **Context:** Original spec required manual ingestion of a curated 100-district list. Moderators would preview each district, then trigger ingest (single, batch, or ingest-all). User requested a simpler workflow.

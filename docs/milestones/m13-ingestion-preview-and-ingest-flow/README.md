@@ -22,15 +22,15 @@ Implement the NCES file upload flow from the UI, automatic ingestion processing,
 ## Success Criteria
 
 ### Automated Verification
-- [ ] Upload API accepts file and creates ingestion job
-- [ ] Completeness score computed per district after ingestion
-- [ ] Progress endpoint returns current job state
+- [x] Upload API accepts file and creates ingestion job
+- [x] Completeness score computed per district after ingestion
+- [x] Progress endpoint returns current job state
 - [x] Large uploads process async without blocking UI
 
 ### Manual Verification
-- [ ] Moderator can upload NCES file from UI; progress visible
-- [ ] All districts auto-ingested; completeness scores displayed
-- [ ] Job progress updates during run; completion summary shown
+- [x] Moderator can upload NCES file from UI; progress visible
+- [x] All districts auto-ingested; completeness scores displayed
+- [x] Job progress updates during run; completion summary shown
 
 ## Tasks
 

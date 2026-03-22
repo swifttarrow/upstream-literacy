@@ -24,11 +24,11 @@ Build the moderator-facing ingestion dashboard with upload area, district list (
 
 ### Automated Verification
 - [x] Dashboard loads without error for moderator
-- [ ] District list renders with correct columns including completeness
+- [x] District list renders with correct columns including completeness
 - [x] Filters and search reduce result set as expected
 
 ### Manual Verification
-- [ ] Moderator sees upload area, summary counts, and recent jobs
+- [x] Moderator sees upload area, summary counts, and recent jobs
 - [x] Moderator can search by district name, filter by state and completeness
 - [x] Moderator can navigate to district detail from list
 

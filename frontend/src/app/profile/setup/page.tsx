@@ -51,6 +51,7 @@ export default function ProfileSetupPage() {
   const [showRecommendations, setShowRecommendations] = useState(false);
   const recommendationsRef = useRef<HTMLDivElement>(null);
 
+  const [email, setEmail] = useState('');
   const [formData, setFormData] = useState({
     full_name: '',
     professional_role: '',
@@ -83,6 +84,7 @@ export default function ProfileSetupPage() {
         ? [primary.problem_statement_id, ...secondary.map((s) => s.problem_statement_id)]
         : secondary.map((s) => s.problem_statement_id);
 
+      setEmail(String(user.email || ''));
       setFormData({
         full_name: String(user.full_name || ''),
         professional_role: String(user.professional_role || ''),
@@ -261,6 +263,17 @@ export default function ProfileSetupPage() {
           <div className="card">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic information</h2>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  disabled
+                  className="input-field bg-gray-50 text-gray-600 cursor-not-allowed"
+                  aria-describedby="email-help"
+                />
+                <p id="email-help" className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
                 <input

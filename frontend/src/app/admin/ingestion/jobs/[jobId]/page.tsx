@@ -44,9 +44,9 @@ interface ExistingAttribute {
 }
 
 interface RecordPreviewData {
-  candidate: { name: string; state: string; district_type: string; nces_district_id: string; district_id: string | null };
+  candidate: { name: string; state: string; district_size: string; nces_district_id: string; district_id: string | null };
   existing_attributes: ExistingAttribute[];
-  normalized: { name: string; state: string; district_type: string; nces_district_id: string };
+  normalized: { name: string; state: string; district_size: string; nces_district_id: string };
 }
 
 const JOB_STATUS_COLORS: Record<string, string> = {
@@ -100,9 +100,9 @@ export default function JobDetailPage() {
     setExpandedLoading(true);
     try {
       const data = await api.get<{
-        candidate: { name: string; state: string; district_type: string; nces_district_id: string; district_id: string | null };
+        candidate: { name: string; state: string; district_size: string; nces_district_id: string; district_id: string | null };
         existing_attributes: ExistingAttribute[];
-        normalized: { name: string; state: string; district_type: string; nces_district_id: string };
+        normalized: { name: string; state: string; district_size: string; nces_district_id: string };
       }>(`/admin/ingestion/candidates/${record.candidate_id}/preview`);
       setExpandedPreview(data);
     } catch {
@@ -400,7 +400,7 @@ export default function JobDetailPage() {
                               <span className="text-gray-500">State</span>
                               <span>{expandedPreview.normalized.state}</span>
                               <span className="text-gray-500">District type</span>
-                              <span>{expandedPreview.normalized.district_type}</span>
+                              <span>{expandedPreview.normalized.district_size}</span>
                               <span className="text-gray-500">NCES ID</span>
                               <span className="font-mono">{expandedPreview.normalized.nces_district_id}</span>
                             </div>

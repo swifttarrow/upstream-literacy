@@ -27,7 +27,7 @@ interface District {
 }
 
 const EDITABLE_KEYS = [
-  'district_type',
+  'district_size',
   'enrollment_bucket',
   'frl_bucket',
   'el_bucket',

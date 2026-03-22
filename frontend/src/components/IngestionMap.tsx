@@ -20,7 +20,7 @@ interface IngestionMapProps {
   search: string;
   stateFilter: string;
   statusFilter: string;
-  districtTypeFilter?: string;
+  districtSizeFilter?: string;
   enrollmentMin?: string;
   enrollmentMax?: string;
 }
@@ -54,7 +54,7 @@ function createColoredIcon(L: typeof import('leaflet'), color: string) {
   });
 }
 
-export default function IngestionMap({ search, stateFilter, statusFilter, districtTypeFilter = '', enrollmentMin = '', enrollmentMax = '' }: IngestionMapProps) {
+export default function IngestionMap({ search, stateFilter, statusFilter, districtSizeFilter = '', enrollmentMin = '', enrollmentMax = '' }: IngestionMapProps) {
   const router = useRouter();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<import('leaflet').Map | null>(null);
@@ -107,7 +107,7 @@ export default function IngestionMap({ search, stateFilter, statusFilter, distri
         if (search) params.set('search', search);
         if (stateFilter) params.set('state', stateFilter);
         if (statusFilter) params.set('status', statusFilter);
-        if (districtTypeFilter) params.set('district_type', districtTypeFilter);
+        if (districtSizeFilter) params.set('district_size', districtSizeFilter);
         if (enrollmentMin) params.set('enrollment_min', enrollmentMin);
         if (enrollmentMax) params.set('enrollment_max', enrollmentMax);
 
@@ -126,7 +126,7 @@ export default function IngestionMap({ search, stateFilter, statusFilter, distri
 
     fetchMapData();
     return () => controller.abort();
-  }, [search, stateFilter, statusFilter, districtTypeFilter, enrollmentMin, enrollmentMax]);
+  }, [search, stateFilter, statusFilter, districtSizeFilter, enrollmentMin, enrollmentMax]);
 
   // Update markers when map and data are ready
   useEffect(() => {

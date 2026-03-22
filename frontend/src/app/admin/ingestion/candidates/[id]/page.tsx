@@ -12,7 +12,7 @@ interface Candidate {
   nces_district_id: string;
   name: string;
   state: string;
-  district_type: string;
+  district_size: string;
   status: string;
   missing_data_indicator: boolean;
   last_refresh_at: string | null;
@@ -47,7 +47,7 @@ interface PreviewData {
   normalized: {
     name: string;
     state: string;
-    district_type: string;
+    district_size: string;
     nces_district_id: string;
   };
   missing_fields: string[];
@@ -229,8 +229,8 @@ export default function CandidatePreviewPage() {
                 <dd className="font-mono text-gray-900">{candidate.nces_district_id}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-gray-500">District Type</dt>
-                <dd className="text-gray-900 capitalize">{candidate.district_type}</dd>
+                <dt className="text-gray-500">District Size</dt>
+                <dd className="text-gray-900">{candidate.district_size === 'xl' ? 'XL' : candidate.district_size.replace(/^./, (c) => c.toUpperCase())}</dd>
               </div>
             </dl>
           </div>

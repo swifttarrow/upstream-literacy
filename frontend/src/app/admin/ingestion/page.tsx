@@ -16,7 +16,7 @@ interface Candidate {
   nces_district_id: string;
   name: string;
   state: string;
-  district_type: string;
+  district_size: string;
   locale_type?: string | null;
   locale_subtype?: string | null;
   status: string;
@@ -121,11 +121,11 @@ function IngestionDashboard() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Filters from URL (state, district_type, enrollment align with discovery matching criteria)
+  // Filters from URL (state, district_size, enrollment align with discovery matching criteria)
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [stateFilter, setStateFilter] = useState(searchParams.get('state') || '');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
-  const [districtTypeFilter, setDistrictTypeFilter] = useState(searchParams.get('district_type') || '');
+  const [districtSizeFilter, setDistrictTypeFilter] = useState(searchParams.get('district_size') || '');
   const [enrollmentMin, setEnrollmentMin] = useState(searchParams.get('enrollment_min') || '');
   const [enrollmentMax, setEnrollmentMax] = useState(searchParams.get('enrollment_max') || '');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1'));
@@ -142,7 +142,7 @@ function IngestionDashboard() {
     if (params.search) sp.set('search', params.search);
     if (params.state) sp.set('state', params.state);
     if (params.status) sp.set('status', params.status);
-    if (params.district_type) sp.set('district_type', params.district_type);
+    if (params.district_size) sp.set('district_size', params.district_size);
     if (params.enrollment_min) sp.set('enrollment_min', params.enrollment_min);
     if (params.enrollment_max) sp.set('enrollment_max', params.enrollment_max);
     if (params.page && params.page !== '1') sp.set('page', params.page);
@@ -159,7 +159,7 @@ function IngestionDashboard() {
       if (searchDebounced) params.set('search', searchDebounced);
       if (stateFilter) params.set('state', stateFilter);
       if (statusFilter) params.set('status', statusFilter);
-      if (districtTypeFilter) params.set('district_type', districtTypeFilter);
+      if (districtSizeFilter) params.set('district_size', districtSizeFilter);
       if (enrollmentMin) params.set('enrollment_min', enrollmentMin);
       if (enrollmentMax) params.set('enrollment_max', enrollmentMax);
       params.set('page', String(page));
@@ -186,7 +186,7 @@ function IngestionDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [searchDebounced, stateFilter, statusFilter, districtTypeFilter, enrollmentMin, enrollmentMax, page, router]);
+  }, [searchDebounced, stateFilter, statusFilter, districtSizeFilter, enrollmentMin, enrollmentMax, page, router]);
 
   useEffect(() => {
     if (!isAuthenticated()) { router.push('/login'); return; }
@@ -297,7 +297,7 @@ function IngestionDashboard() {
     if (key === 'search') setSearch(value);
     if (key === 'state') setStateFilter(value);
     if (key === 'status') setStatusFilter(value);
-    if (key === 'district_type') setDistrictTypeFilter(value);
+    if (key === 'district_size') setDistrictTypeFilter(value);
     if (key === 'enrollment_min') setEnrollmentMin(value);
     if (key === 'enrollment_max') setEnrollmentMax(value);
     setPage(newPage);
@@ -305,7 +305,7 @@ function IngestionDashboard() {
       search: key === 'search' ? value : search,
       state: key === 'state' ? value : stateFilter,
       status: key === 'status' ? value : statusFilter,
-      district_type: key === 'district_type' ? value : districtTypeFilter,
+      district_size: key === 'district_size' ? value : districtSizeFilter,
       enrollment_min: key === 'enrollment_min' ? value : enrollmentMin,
       enrollment_max: key === 'enrollment_max' ? value : enrollmentMax,
       page: '1',
@@ -613,7 +613,7 @@ function IngestionDashboard() {
           </div>
         )}
 
-        {/* Filters — search + matching criteria (state, district_type, enrollment align with discovery) */}
+        {/* Filters — search + matching criteria (state, district_size, enrollment align with discovery) */}
         <div className="card mb-4 space-y-3">
           <p className="text-xs text-gray-500">Search &amp; matching criteria (for sanity-check)</p>
           <div className="flex flex-wrap items-center gap-3">
@@ -638,15 +638,16 @@ function IngestionDashboard() {
               ))}
             </select>
             <select
-              value={districtTypeFilter}
-              onChange={(e) => handleFilterChange('district_type', e.target.value)}
+              value={districtSizeFilter}
+              onChange={(e) => handleFilterChange('district_size', e.target.value)}
               className="input-field w-28"
-              title="District type (locale: large/mid/small)"
+              title="District size (enrollment-based: Small &lt;2,500, Medium 2,500–10K, Large 10K–25K, XL 25K+)"
             >
-              <option value="">All types</option>
-              <option value="large">Large</option>
-              <option value="mid">Mid</option>
-              <option value="small">Small</option>
+              <option value="">All sizes</option>
+              <option value="small">Small (&lt;2,500)</option>
+              <option value="medium">Medium (2,500–10K)</option>
+              <option value="large">Large (10K–25K)</option>
+              <option value="xl">XL (25K+)</option>
             </select>
             <input
               type="number"
@@ -682,7 +683,7 @@ function IngestionDashboard() {
                 View Warnings
               </button>
             )}
-            {(search || stateFilter || statusFilter || districtTypeFilter || enrollmentMin || enrollmentMax) && (
+            {(search || stateFilter || statusFilter || districtSizeFilter || enrollmentMin || enrollmentMax) && (
               <button
                 onClick={() => {
                   setSearch('');
@@ -692,7 +693,7 @@ function IngestionDashboard() {
                   setEnrollmentMin('');
                   setEnrollmentMax('');
                   setPage(1);
-                  updateUrl({ search: '', state: '', status: '', district_type: '', enrollment_min: '', enrollment_max: '', page: '1' });
+                  updateUrl({ search: '', state: '', status: '', district_size: '', enrollment_min: '', enrollment_max: '', page: '1' });
                 }}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
@@ -732,7 +733,7 @@ function IngestionDashboard() {
             search={searchDebounced}
             stateFilter={stateFilter}
             statusFilter={statusFilter}
-            districtTypeFilter={districtTypeFilter}
+            districtSizeFilter={districtSizeFilter}
             enrollmentMin={enrollmentMin}
             enrollmentMax={enrollmentMax}
           />
@@ -776,7 +777,7 @@ function IngestionDashboard() {
         ) : candidates.length === 0 ? (
           <div className="card text-center py-12">
             <p className="text-gray-500">
-              {pagination?.total === 0 && !search && !stateFilter && !statusFilter && !districtTypeFilter && !enrollmentMin && !enrollmentMax
+              {pagination?.total === 0 && !search && !stateFilter && !statusFilter && !districtSizeFilter && !enrollmentMin && !enrollmentMax
                 ? 'No district data yet. Click "Upload NCES Data" to get started.'
                 : 'No districts found'}
             </p>
@@ -855,14 +856,14 @@ function IngestionDashboard() {
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setPage(page - 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_type: districtTypeFilter, enrollment_min: enrollmentMin, enrollment_max: enrollmentMax, page: String(page - 1) }); }}
+                    onClick={() => { setPage(page - 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_size: districtSizeFilter, enrollment_min: enrollmentMin, enrollment_max: enrollmentMax, page: String(page - 1) }); }}
                     disabled={page <= 1}
                     className="btn-secondary text-xs py-1 px-2 disabled:opacity-40"
                   >
                     Prev
                   </button>
                   <button
-                    onClick={() => { setPage(page + 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_type: districtTypeFilter, enrollment_min: enrollmentMin, enrollment_max: enrollmentMax, page: String(page + 1) }); }}
+                    onClick={() => { setPage(page + 1); updateUrl({ search, state: stateFilter, status: statusFilter, district_size: districtSizeFilter, enrollment_min: enrollmentMin, enrollment_max: enrollmentMax, page: String(page + 1) }); }}
                     disabled={page >= pagination.pages}
                     className="btn-secondary text-xs py-1 px-2 disabled:opacity-40"
                   >

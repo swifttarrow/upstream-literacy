@@ -91,7 +91,11 @@ export default function NavBar() {
 
   // Defer auth-dependent render until after mount to avoid hydration mismatch
   // (localStorage is undefined on server, so isAuthenticated() differs between server/client)
-  if (!mounted || !isAuthenticated()) return null;
+  // Render a stable placeholder while mounting to prevent layout shift / content flash.
+  if (!mounted) {
+    return <div className="h-16 bg-white border-b border-gray-200 sticky top-0 z-50" />;
+  }
+  if (!isAuthenticated()) return null;
 
   const user = getUser();
   const role = user?.platform_role as string | undefined;

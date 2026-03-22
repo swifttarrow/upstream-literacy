@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
 
 interface Connection {
   other_user_id: string;
@@ -97,7 +96,6 @@ export default function NewGroupPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Create group conversation</h1>

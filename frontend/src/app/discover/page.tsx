@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
+import { pageCache } from '@/lib/page-cache';
+
+const CACHE_KEY = 'discover:page1';
 
 interface Match {
   id: string;
@@ -31,15 +33,26 @@ interface ProblemStatement {
   category_name: string;
 }
 
+type DiscoverCache = { matches: Match[]; meta: { total: number; coldStart: boolean }; totalPages: number };
+
 export default function DiscoverPage() {
   const router = useRouter();
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [matches, setMatches] = useState<Match[]>(() => {
+    const c = pageCache.get<DiscoverCache>(CACHE_KEY);
+    return c?.matches ?? [];
+  });
+  const [loading, setLoading] = useState(() => !pageCache.has(CACHE_KEY));
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const [meta, setMeta] = useState<{ total: number; coldStart: boolean } | null>(null);
+  const [meta, setMeta] = useState<{ total: number; coldStart: boolean } | null>(() => {
+    const c = pageCache.get<DiscoverCache>(CACHE_KEY);
+    return c?.meta ?? null;
+  });
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(() => {
+    const c = pageCache.get<DiscoverCache>(CACHE_KEY);
+    return c?.totalPages ?? 1;
+  });
   const [problems, setProblems] = useState<ProblemStatement[]>([]);
 
   const [filters, setFilters] = useState({
@@ -50,29 +63,45 @@ export default function DiscoverPage() {
 
   const [connectingIds, setConnectingIds] = useState<Set<string>>(new Set());
 
-  const loadProblems = useCallback(async () => {
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadProblems();
+    loadMatches(1, true);
+  }, [router]);
+
+  const loadProblems = async () => {
     try {
       const data = await api.get<{ statements: ProblemStatement[] }>('/problem-statements');
       setProblems(data.statements);
     } catch {
       // ignore
     }
-  }, []);
+  };
 
-  const loadMatches = useCallback(async (p: number, reset = false, f = filters) => {
-    if (reset) setLoading(true);
-    else setLoadingMore(true);
+  const buildQuery = (p: number, f = filters) => {
+    const params = new URLSearchParams();
+    params.set('page', String(p));
+    if (f.problemId) params.set('problemId', f.problemId);
+    if (f.stateRegion) params.set('stateRegion', f.stateRegion);
+    if (f.professionalRole) params.set('professionalRole', f.professionalRole);
+    return params.toString();
+  };
+
+  const loadMatches = async (p: number, reset = false, f = filters) => {
+    const isDefaultView = p === 1 && !f.problemId && !f.stateRegion && !f.professionalRole;
+    const hasCached = isDefaultView && pageCache.has(CACHE_KEY);
+    if (reset && !hasCached) setLoading(true);
+    else if (!reset) setLoadingMore(true);
     setError('');
 
     try {
-      const params = new URLSearchParams();
-      params.set('page', String(p));
-      if (f.problemId) params.set('problemId', f.problemId);
-      if (f.stateRegion) params.set('stateRegion', f.stateRegion);
-      if (f.professionalRole) params.set('professionalRole', f.professionalRole);
-      const query = params.toString();
-
-      const data = await api.get<MatchResponse>(`/discovery/matches?${query}`);
+      const data = await api.get<MatchResponse>(`/discovery/matches?${buildQuery(p, f)}`);
+      if (isDefaultView) {
+        pageCache.set(CACHE_KEY, { matches: data.matches, meta: data.meta, totalPages: data.pagination.pages });
+      }
       setMatches((prev) => (reset ? data.matches : [...prev, ...data.matches]));
       setMeta(data.meta);
       setPage(p);
@@ -87,16 +116,7 @@ export default function DiscoverPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [filters, router]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadProblems();
-    loadMatches(1, true);
-  }, [router, loadProblems, loadMatches]);
+  };
 
   const handleFilterChange = (field: string, value: string) => {
     const newFilters = { ...filters, [field]: value };
@@ -134,7 +154,6 @@ export default function DiscoverPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Discover peers</h1>

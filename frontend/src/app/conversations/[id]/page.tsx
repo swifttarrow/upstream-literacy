@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { getToken, isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
 
 interface Message {
   id: string;
@@ -22,10 +21,8 @@ interface Participant {
   left_at: string | null;
 }
 
-// Backend serves WebSocket at /api/ws; ensure path is correct when API_BASE omits /api
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
-const WS_PATH = API_BASE.includes('/api') ? '/ws' : '/api/ws';
 
 export default function ConversationPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -37,43 +34,34 @@ export default function ConversationPage({ params }: { params: { id: string } })
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const idRef = useRef(id);
-  idRef.current = id;
 
-  const connectWebSocket = useCallback(() => {
-    const token = getToken();
-    if (!token) return;
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadData();
+    connectWebSocket();
 
-    const ws = new WebSocket(`${WS_BASE}${WS_PATH}?token=${token}`);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === 'new_message' && msg.data?.conversation_id === idRef.current) {
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === msg.data.id)) return prev;
-            return [...prev, msg.data];
-          });
-        }
-      } catch {
-        // ignore
-      }
+    return () => {
+      wsRef.current?.close();
     };
+  }, [id, router]);
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ event: 'subscribe', conversation_id: idRef.current }));
-    };
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-    ws.onclose = () => {
-      setTimeout(connectWebSocket, 3000);
-    };
-  }, []);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
       const [messagesRes, participantsRes] = await Promise.all([
@@ -91,28 +79,39 @@ export default function ConversationPage({ params }: { params: { id: string } })
     } finally {
       setLoading(false);
     }
-  }, [id, router]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadData();
-    connectWebSocket();
-
-    return () => {
-      wsRef.current?.close();
-    };
-  }, [id, router, connectWebSocket, loadData]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const connectWebSocket = useCallback(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const ws = new WebSocket(`${WS_BASE}/ws?token=${token}`);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.event === 'new_message' && msg.data.conversation_id === id) {
+          setMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some((m) => m.id === msg.data.id)) return prev;
+            return [...prev, msg.data];
+          });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ event: 'subscribe', conversation_id: id }));
+    };
+
+    ws.onclose = () => {
+      // Reconnect after delay
+      setTimeout(connectWebSocket, 3000);
+    };
+  }, [id]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +135,23 @@ export default function ConversationPage({ params }: { params: { id: string } })
     }
   };
 
+  const handleSummarize = async () => {
+    setAiLoading(true);
+    setAiResult('');
+    try {
+      const data = await api.post<{ summary: string }>(`/conversations/${id}/summarize`);
+      setAiResult(data.summary);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setAiResult('Rate limit reached. Try again in an hour.');
+      } else {
+        setAiResult('Failed to generate summary.');
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleLeave = async () => {
     if (!confirm('Leave this conversation?')) return;
     try {
@@ -148,7 +164,6 @@ export default function ConversationPage({ params }: { params: { id: string } })
 
   return (
     <>
-      <NavBar />
       <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col h-[calc(100vh-4rem)]">
         {/* Header */}
         <div className="card mb-4 flex items-center justify-between py-3">
@@ -159,11 +174,32 @@ export default function ConversationPage({ params }: { params: { id: string } })
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleSummarize}
+              disabled={aiLoading}
+              className="btn-secondary text-sm"
+            >
+              {aiLoading ? 'Summarizing...' : 'AI Summary'}
+            </button>
             <button onClick={handleLeave} className="text-sm text-red-600 hover:text-red-700">
               Leave
             </button>
           </div>
         </div>
+
+        {/* AI Result */}
+        {aiResult && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="text-sm font-semibold text-blue-900 mb-2">AI Summary</h3>
+            <p className="text-sm text-blue-800">{aiResult}</p>
+            <button
+              onClick={() => setAiResult('')}
+              className="mt-2 text-xs text-blue-600 hover:text-blue-700"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Messages */}
         {error && (

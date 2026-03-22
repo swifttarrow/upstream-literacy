@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
+import { pageCache } from '@/lib/page-cache';
+
+const CACHE_KEY = 'notifications';
 
 interface Notification {
   id: string;
@@ -17,17 +19,32 @@ interface Notification {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const c = pageCache.get<{ notifications: Notification[]; unread_count: number }>(CACHE_KEY);
+    return c?.notifications ?? [];
+  });
+  const [loading, setLoading] = useState(() => !pageCache.has(CACHE_KEY));
+  const [unreadCount, setUnreadCount] = useState(() => {
+    const c = pageCache.get<{ notifications: Notification[]; unread_count: number }>(CACHE_KEY);
+    return c?.unread_count ?? 0;
+  });
   const [error, setError] = useState('');
 
-  const loadNotifications = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadNotifications();
+  }, [router]);
+
+  const loadNotifications = async () => {
+    if (!pageCache.has(CACHE_KEY)) setLoading(true);
     try {
       const data = await api.get<{ notifications: Notification[]; unread_count: number }>(
         '/notifications'
       );
+      pageCache.set(CACHE_KEY, { notifications: data.notifications, unread_count: data.unread_count });
       setNotifications(data.notifications);
       setUnreadCount(data.unread_count);
     } catch (err) {
@@ -39,15 +56,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadNotifications();
-  }, [router, loadNotifications]);
+  };
 
   const handleMarkRead = async (id: string) => {
     try {
@@ -84,7 +93,6 @@ export default function NotificationsPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>

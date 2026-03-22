@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
+import { pageCache } from '@/lib/page-cache';
+
+const CACHE_KEY = 'conversations';
 
 interface Conversation {
   id: string;
@@ -17,14 +19,25 @@ interface Conversation {
 
 export default function ConversationsPage() {
   const router = useRouter();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [conversations, setConversations] = useState<Conversation[]>(
+    () => pageCache.get<Conversation[]>(CACHE_KEY) ?? []
+  );
+  const [loading, setLoading] = useState(() => !pageCache.has(CACHE_KEY));
   const [error, setError] = useState('');
 
-  const loadConversations = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadConversations();
+  }, [router]);
+
+  const loadConversations = async () => {
+    if (!pageCache.has(CACHE_KEY)) setLoading(true);
     try {
       const data = await api.get<{ conversations: Conversation[] }>('/conversations');
+      pageCache.set(CACHE_KEY, data.conversations);
       setConversations(data.conversations);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
@@ -35,19 +48,10 @@ export default function ConversationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadConversations();
-  }, [router, loadConversations]);
+  };
 
   return (
     <>
-      <NavBar />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Messages</h1>

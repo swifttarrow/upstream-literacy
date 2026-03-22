@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { getUser, isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
 
 interface Report {
   id: string;
@@ -37,7 +36,23 @@ export default function AdminReportsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  const loadReports = useCallback(async () => {
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getUser();
+    const role = user?.platform_role as string;
+    if (role !== 'admin' && role !== 'moderator') {
+      router.push('/discover');
+      return;
+    }
+
+    loadReports();
+  }, [router, statusFilter]);
+
+  const loadReports = async () => {
     setLoading(true);
     try {
       const data = await api.get<{ reports: Report[] }>(
@@ -53,23 +68,7 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, router]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-
-    const user = getUser();
-    const role = user?.platform_role as string;
-    if (role !== 'admin' && role !== 'moderator') {
-      router.push('/discover');
-      return;
-    }
-
-    loadReports();
-  }, [router, loadReports]);
+  };
 
   const handleAction = async (reportId: string, actionType: ActionType) => {
     setActionLoading(`${reportId}-${actionType}`);
@@ -99,7 +98,6 @@ export default function AdminReportsPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Reports Queue</h1>

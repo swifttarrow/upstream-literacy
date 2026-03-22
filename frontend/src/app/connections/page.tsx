@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
+import { pageCache } from '@/lib/page-cache';
 
 interface Connection {
   id: string;
@@ -20,65 +20,48 @@ interface Connection {
 
 type Tab = 'connected' | 'pending_sent' | 'pending_received';
 
-function tabFromUrl(searchParams: URLSearchParams | null): Tab | null {
-  const t = searchParams?.get('tab');
-  if (t === 'connected' || t === 'pending_sent' || t === 'pending_received') return t;
-  return null;
-}
-
 export default function ConnectionsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const urlTab = tabFromUrl(searchParams);
-  const [tab, setTab] = useState<Tab>(urlTab ?? 'connected');
-  const [hasCheckedPendingReceived, setHasCheckedPendingReceived] = useState(!!urlTab);
-  const [connectionsByTab, setConnectionsByTab] = useState<Partial<Record<Tab, Connection[]>>>({});
-  const [loading, setLoading] = useState(true);
-  const [showLoadingPlaceholder, setShowLoadingPlaceholder] = useState(true);
+  const [tab, setTab] = useState<Tab>('connected');
+  const [connections, setConnections] = useState<Connection[]>(
+    () => pageCache.get<Connection[]>('connections:connected') ?? []
+  );
+  const [loading, setLoading] = useState(() => !pageCache.has('connections:connected'));
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
   const loadIdRef = useRef(0);
-  const connections = connectionsByTab[tab] ?? [];
-  const hasCachedDataForTab = tab in connectionsByTab;
-  const showSkeleton = loading && (showLoadingPlaceholder || !hasCachedDataForTab);
 
-  const updateUrlForTab = useCallback((t: Tab) => {
-    const params = new URLSearchParams();
-    if (t !== 'connected') params.set('tab', t);
-    const qs = params.toString();
-    const path = qs ? `/connections?${qs}` : '/connections';
-    router.replace(path, { scroll: false });
-  }, [router]);
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    const cacheKey = `connections:${tab}`;
+    const cached = pageCache.get<Connection[]>(cacheKey);
+    if (cached) {
+      setConnections(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    loadConnections();
+  }, [tab, router]);
 
-  const loadConnections = useCallback(async () => {
+  const loadConnections = async () => {
     const requestedTab = tab;
+    const cacheKey = `connections:${requestedTab}`;
     const id = ++loadIdRef.current;
-    setLoading(true);
+    if (!pageCache.has(cacheKey)) setLoading(true);
     setError('');
     try {
-      const data = await api.get<{
-        connections: Connection[];
-        meta?: { pending_received_count?: number };
-      }>(`/connections?tab=${requestedTab}`);
-      if (id !== loadIdRef.current) return;
-
-      setConnectionsByTab((prev) => ({ ...prev, [requestedTab]: data.connections ?? [] }));
-
-      // On first load with no URL tab: if user has pending received, switch to that tab
-      const meta = data.meta;
-      const pendingCount = meta?.pending_received_count ?? 0;
-      if (
-        !hasCheckedPendingReceived &&
-        urlTab == null &&
-        requestedTab === 'connected' &&
-        pendingCount > 0
-      ) {
-        setHasCheckedPendingReceived(true);
-        setTab('pending_received');
-        updateUrlForTab('pending_received');
-        return; // useEffect will re-run with new tab and load pending_received
+      const data = await api.get<{ connections: Connection[] }>(
+        `/connections?tab=${requestedTab}`
+      );
+      // Ignore stale response if user switched tabs before this completed
+      if (id === loadIdRef.current) {
+        pageCache.set(cacheKey, data.connections);
+        setConnections(data.connections);
       }
-      setHasCheckedPendingReceived(true);
     } catch {
       if (id === loadIdRef.current) {
         setError('Failed to load connections');
@@ -88,32 +71,6 @@ export default function ConnectionsPage() {
         setLoading(false);
       }
     }
-  }, [tab, urlTab, hasCheckedPendingReceived, updateUrlForTab]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadConnections();
-  }, [router, tab, loadConnections]);
-
-  // Only show skeleton after 120ms to avoid flash on fast requests
-  useEffect(() => {
-    if (!loading) {
-      setShowLoadingPlaceholder(false);
-      return;
-    }
-    const t = setTimeout(() => setShowLoadingPlaceholder(true), 120);
-    return () => clearTimeout(t);
-  }, [loading]);
-
-  const setTabAndUrl = (t: Tab) => {
-    if (t === tab) return;
-    setTab(t);
-    setLoading(true);
-    setShowLoadingPlaceholder(false);
-    updateUrlForTab(t);
   };
 
   const handleAccept = async (connectionId: string) => {
@@ -122,7 +79,7 @@ export default function ConnectionsPage() {
     try {
       await api.post(`/connections/requests/${connectionId}/accept`);
       // Switch to Connected tab so user sees their new connection; useEffect will reload
-      setTabAndUrl('connected');
+      setTab('connected');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -172,7 +129,6 @@ export default function ConnectionsPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Connections</h1>
@@ -184,7 +140,7 @@ export default function ConnectionsPage() {
             {tabs.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTabAndUrl(t.id)}
+                onClick={() => setTab(t.id)}
                 className={`py-2 text-sm font-medium border-b-2 transition-colors ${
                   tab === t.id
                     ? 'border-primary-500 text-primary-600'
@@ -203,7 +159,7 @@ export default function ConnectionsPage() {
           </div>
         )}
 
-        {showSkeleton ? (
+        {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="card animate-pulse">
@@ -219,11 +175,6 @@ export default function ConnectionsPage() {
               {tab === 'pending_sent' && 'No pending outgoing requests.'}
               {tab === 'pending_received' && 'No pending incoming requests.'}
             </p>
-            {tab === 'connected' && (
-              <p className="text-sm text-gray-400 mt-2">
-                Check the <button type="button" onClick={() => setTabAndUrl('pending_received')} className="text-primary-600 hover:underline">Received</button> tab if someone has requested to connect with you.
-              </p>
-            )}
           </div>
         ) : (
           <div className="space-y-3">

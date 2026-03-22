@@ -1,26 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
-import NavBar from '@/components/NavBar';
-import {
-  Combobox,
-  ComboboxChip,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxCollection,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxGroup,
-  ComboboxItem,
-  ComboboxLabel,
-  ComboboxList,
-  ComboboxSeparator,
-  ComboboxValue,
-  useComboboxAnchor,
-} from '@/components/ui/combobox';
 
 interface District {
   id: string;
@@ -51,7 +34,6 @@ export default function ProfileSetupPage() {
   const [showRecommendations, setShowRecommendations] = useState(false);
   const recommendationsRef = useRef<HTMLDivElement>(null);
 
-  const [email, setEmail] = useState('');
   const [formData, setFormData] = useState({
     full_name: '',
     professional_role: '',
@@ -59,9 +41,22 @@ export default function ProfileSetupPage() {
     district_id: '',
     problem_ids: [] as string[], // up to 7; first = primary, rest = secondary
   });
-  const problemComboboxAnchor = useComboboxAnchor();
+  const [problemSearch, setProblemSearch] = useState('');
+  const [showProblemDropdown, setShowProblemDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const problemDropdownRef = useRef<HTMLDivElement>(null);
+  const listboxRef = useRef<HTMLUListElement>(null);
+  const optionRefs = useRef<Map<number, HTMLElement>>(new Map());
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    loadData();
+  }, [router]);
+
+  const loadData = async () => {
     try {
       const [userRes, problemsRes] = await Promise.all([
         api.get<{ user: Record<string, unknown> }>('/users/me'),
@@ -76,7 +71,6 @@ export default function ProfileSetupPage() {
         ? [primary.problem_statement_id, ...secondary.map((s) => s.problem_statement_id)]
         : secondary.map((s) => s.problem_statement_id);
 
-      setEmail(String(user.email || ''));
       setFormData({
         full_name: String(user.full_name || ''),
         professional_role: String(user.professional_role || ''),
@@ -95,15 +89,7 @@ export default function ProfileSetupPage() {
         setLoading(false);
       }
     }
-  }, [router]);
-
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
-    }
-    loadData();
-  }, [router, loadData]);
+  };
 
   const loadDistricts = useCallback(async (search: string) => {
     if (!search.trim()) {
@@ -148,6 +134,17 @@ export default function ProfileSetupPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Close problem dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (problemDropdownRef.current && !problemDropdownRef.current.contains(e.target as Node)) {
+        setShowProblemDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const selectDistrict = (d: District) => {
     const displayName = `${d.name}${d.state_region ? ` (${d.state_region})` : ''}`;
     setFormData((p) => ({ ...p, district_id: d.id }));
@@ -163,36 +160,91 @@ export default function ProfileSetupPage() {
     setDistricts([]);
   };
 
-  // Group problems by category for combobox
-  const problemGroups = useMemo(() => {
-    const byCategory = new Map<string, ProblemStatement[]>();
-    for (const p of problems) {
-      const list = byCategory.get(p.category_name) || [];
-      list.push(p);
-      byCategory.set(p.category_name, list);
+  const addProblem = (id: string) => {
+    setFormData((prev) => {
+      if (prev.problem_ids.includes(id) || prev.problem_ids.length >= 7) return prev;
+      return { ...prev, problem_ids: [...prev.problem_ids, id] };
+    });
+    setProblemSearch('');
+    setShowProblemDropdown(false);
+    setHighlightedIndex(-1);
+  };
+
+  // Filter problems for combobox (exclude already selected)
+  const problemSearchLower = problemSearch.trim().toLowerCase();
+  const filteredProblems = problems
+    .filter(
+      (p) =>
+        !formData.problem_ids.includes(p.id) &&
+        (!problemSearchLower ||
+          p.label.toLowerCase().includes(problemSearchLower) ||
+          p.category_name.toLowerCase().includes(problemSearchLower))
+    )
+    .slice(0, 50); // show all for scrolling
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (!showProblemDropdown || highlightedIndex < 0) return;
+    const el = optionRefs.current.get(highlightedIndex);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [highlightedIndex, showProblemDropdown]);
+
+  // Reset highlight when filtered list changes
+  useEffect(() => {
+    setHighlightedIndex((prev) => {
+      if (filteredProblems.length === 0) return -1;
+      return Math.min(prev, filteredProblems.length - 1);
+    });
+  }, [filteredProblems.length]);
+
+  const handleProblemComboboxKeyDown = (e: React.KeyboardEvent) => {
+    if (!showProblemDropdown && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      setShowProblemDropdown(true);
+      setHighlightedIndex(filteredProblems.length > 0 ? 0 : -1);
+      return;
     }
-    const order = Array.from(new Set(problems.map((p) => p.category_name)));
-    return order.map((cat) => ({
-      value: cat,
-      items: byCategory.get(cat) ?? [],
-    }));
-  }, [problems]);
+    if (e.key === 'Escape') {
+      setShowProblemDropdown(false);
+      setHighlightedIndex(-1);
+      return;
+    }
+    if (filteredProblems.length === 0) return;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < filteredProblems.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredProblems.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && filteredProblems[highlightedIndex]) {
+          addProblem(filteredProblems[highlightedIndex].id);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowProblemDropdown(false);
+        setHighlightedIndex(-1);
+        break;
+      default:
+        break;
+    }
+  };
 
-  const selectedProblems = useMemo(
-    () =>
-      formData.problem_ids
-        .map((id) => problems.find((p) => p.id === id))
-        .filter((p): p is ProblemStatement => !!p),
-    [formData.problem_ids, problems]
-  );
-
-  const handleProblemValueChange = useCallback((value: ProblemStatement[]) => {
-    const capped = value.slice(0, 7);
+  const removeProblem = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      problem_ids: capped.map((p) => p.id),
+      problem_ids: prev.problem_ids.filter((x) => x !== id),
     }));
-  }, []);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,7 +290,6 @@ export default function ProfileSetupPage() {
 
   return (
     <>
-      <NavBar />
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Complete your profile</h1>
@@ -263,17 +314,6 @@ export default function ProfileSetupPage() {
           <div className="card">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic information</h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  disabled
-                  className="input-field bg-gray-50 text-gray-600 cursor-not-allowed"
-                  aria-describedby="email-help"
-                />
-                <p id="email-help" className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
                 <input
@@ -364,7 +404,7 @@ export default function ProfileSetupPage() {
           </div>
 
           {/* Problem Statements */}
-          <div className="card">
+          <div className="card" ref={problemDropdownRef}>
             <h2 className="text-lg font-semibold text-gray-900 mb-1">
               Problem statements <span className="text-red-500">*</span>
             </h2>
@@ -377,57 +417,110 @@ export default function ProfileSetupPage() {
                 No problem statements are available yet. Your administrator may need to run the seed.
               </p>
             ) : (
-              <Combobox
-                items={problemGroups}
-                multiple
-                autoHighlight
-                value={selectedProblems}
-                onValueChange={handleProblemValueChange}
-                itemToStringValue={(p: ProblemStatement) => p.label}
-              >
-                <div ref={problemComboboxAnchor} className="w-full rounded-lg border border-input min-h-10 flex flex-col">
-                  <ComboboxChips className="w-full !border-0 !min-h-0 !p-2 flex-col items-stretch">
-                    <ComboboxValue>
-                      {(values: ProblemStatement[]) => (
-                        <>
-                          <ComboboxChipsInput placeholder="Search problem statements..." className="w-full shrink-0 !min-w-0" />
-                          <div className="flex flex-wrap gap-1 w-full min-w-0">
-                            {values.map((p, idx) => (
-                              <ComboboxChip key={p.id}>
-                                {idx === 0 && (
-                                  <span className="text-muted-foreground font-medium mr-1">Primary:</span>
-                                )}
-                                {p.label}
-                              </ComboboxChip>
-                            ))}
-                          </div>
-                        </>
+              <>
+                <div className="relative mb-3">
+                  <input
+                    type="text"
+                    value={problemSearch}
+                    onChange={(e) => {
+                      setProblemSearch(e.target.value);
+                      setShowProblemDropdown(true);
+                    }}
+                    onFocus={() => {
+                      setShowProblemDropdown(true);
+                      setHighlightedIndex(filteredProblems.length > 0 ? 0 : -1);
+                    }}
+                    onKeyDown={handleProblemComboboxKeyDown}
+                    role="combobox"
+                    aria-expanded={showProblemDropdown}
+                    aria-haspopup="listbox"
+                    aria-activedescendant={
+                      showProblemDropdown && highlightedIndex >= 0 && filteredProblems[highlightedIndex]
+                        ? `problem-option-${highlightedIndex}`
+                        : undefined
+                    }
+                    aria-controls="problem-listbox"
+                    id="problem-combobox"
+                    className="input-field w-full"
+                    placeholder="Search or scroll through problem statements..."
+                    autoComplete="off"
+                  />
+                  {showProblemDropdown && (
+                    <ul
+                      ref={listboxRef}
+                      id="problem-listbox"
+                      role="listbox"
+                      aria-labelledby="problem-combobox"
+                      className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+                    >
+                      {filteredProblems.length === 0 ? (
+                        <li
+                          role="option"
+                          className="px-4 py-3 text-sm text-gray-500"
+                          aria-disabled
+                        >
+                          {problemSearch.trim()
+                            ? 'No matching problem statements'
+                            : 'All selected or no options available'}
+                        </li>
+                      ) : (
+                        filteredProblems.map((p, idx) => (
+                          <li
+                            key={p.id}
+                            id={`problem-option-${idx}`}
+                            role="option"
+                            ref={(el) => {
+                              if (el) optionRefs.current.set(idx, el);
+                            }}
+                            aria-selected={highlightedIndex === idx}
+                            className={`w-full px-4 py-2 text-left text-sm first:rounded-t-lg last:rounded-b-lg cursor-pointer ${
+                              highlightedIndex === idx ? 'bg-gray-100' : 'hover:bg-gray-50'
+                            }`}
+                            onMouseEnter={() => setHighlightedIndex(idx)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              addProblem(p.id);
+                            }}
+                          >
+                            <span className="font-medium text-gray-900">{p.label}</span>
+                            <span className="ml-2 text-xs text-gray-500">({p.category_name})</span>
+                          </li>
+                        ))
                       )}
-                    </ComboboxValue>
-                  </ComboboxChips>
+                    </ul>
+                  )}
                 </div>
-                <ComboboxContent anchor={problemComboboxAnchor}>
-                  <ComboboxEmpty>No problem statements found.</ComboboxEmpty>
-                  <ComboboxList className="max-h-[250px]">
-                    {(group: { value: string; items: ProblemStatement[] }, index: number) => (
-                      <ComboboxGroup key={group.value} items={group.items}>
-                        <ComboboxLabel>{group.value}</ComboboxLabel>
-                        <ComboboxCollection>
-                          {(item: ProblemStatement) => (
-                            <ComboboxItem key={item.id} value={item}>
-                              {item.label}
-                            </ComboboxItem>
+                {formData.problem_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.problem_ids.map((id, idx) => {
+                      const p = problems.find((x) => x.id === id);
+                      if (!p) return null;
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-800"
+                        >
+                          {idx === 0 && (
+                            <span className="text-xs text-gray-500 font-medium">Primary:</span>
                           )}
-                        </ComboboxCollection>
-                        {index < problemGroups.length - 1 && <ComboboxSeparator />}
-                      </ComboboxGroup>
-                    )}
-                  </ComboboxList>
-                </ComboboxContent>
-              </Combobox>
-            )}
-            {formData.problem_ids.length >= 7 && (
-              <p className="text-xs text-muted-foreground mt-2">Maximum of 7 problem statements selected.</p>
+                          {p.label}
+                          <button
+                            type="button"
+                            onClick={() => removeProblem(id)}
+                            className="text-gray-400 hover:text-gray-600"
+                            aria-label={`Remove ${p.label}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {formData.problem_ids.length >= 7 && (
+                  <p className="text-xs text-gray-500 mt-2">Maximum of 7 problem statements selected.</p>
+                )}
+              </>
             )}
           </div>
 

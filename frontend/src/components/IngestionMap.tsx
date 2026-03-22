@@ -20,7 +20,9 @@ interface IngestionMapProps {
   search: string;
   stateFilter: string;
   statusFilter: string;
-  totalCandidates: number;
+  districtTypeFilter?: string;
+  enrollmentMin?: string;
+  enrollmentMax?: string;
 }
 
 // Status → hex color mapping (matches dashboard badge colors)
@@ -31,15 +33,6 @@ const STATUS_COLORS: Record<string, string> = {
   ready_to_ingest: '#2563eb',    // blue-600
   in_progress: '#ca8a04',        // yellow-600
   failed: '#dc2626',             // red-600
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  ingested: 'Ingested',
-  ingested_with_warnings: 'Warnings',
-  not_ingested: 'Not Ingested',
-  ready_to_ingest: 'Ready to Ingest',
-  in_progress: 'In Progress',
-  failed: 'Failed',
 };
 
 function getMarkerColor(status: string): string {
@@ -61,7 +54,7 @@ function createColoredIcon(L: typeof import('leaflet'), color: string) {
   });
 }
 
-export default function IngestionMap({ search, stateFilter, statusFilter, totalCandidates }: IngestionMapProps) {
+export default function IngestionMap({ search, stateFilter, statusFilter, districtTypeFilter = '', enrollmentMin = '', enrollmentMax = '' }: IngestionMapProps) {
   const router = useRouter();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<import('leaflet').Map | null>(null);
@@ -114,6 +107,9 @@ export default function IngestionMap({ search, stateFilter, statusFilter, totalC
         if (search) params.set('search', search);
         if (stateFilter) params.set('state', stateFilter);
         if (statusFilter) params.set('status', statusFilter);
+        if (districtTypeFilter) params.set('district_type', districtTypeFilter);
+        if (enrollmentMin) params.set('enrollment_min', enrollmentMin);
+        if (enrollmentMax) params.set('enrollment_max', enrollmentMax);
 
         const data = await api.get<{ districts: MapDistrict[] }>(
           `/admin/ingestion/map-data?${params}`
@@ -130,7 +126,7 @@ export default function IngestionMap({ search, stateFilter, statusFilter, totalC
 
     fetchMapData();
     return () => controller.abort();
-  }, [search, stateFilter, statusFilter]);
+  }, [search, stateFilter, statusFilter, districtTypeFilter, enrollmentMin, enrollmentMax]);
 
   // Update markers when map and data are ready
   useEffect(() => {
@@ -204,21 +200,8 @@ export default function IngestionMap({ search, stateFilter, statusFilter, totalC
     };
   }, []);
 
-  const missingCount = totalCandidates - districts.length;
-
   return (
     <div className="card p-0 overflow-hidden">
-      {/* Missing coordinates notice */}
-      {!loading && missingCount > 0 && (
-        <div className="px-4 py-2 bg-yellow-50 border-b border-yellow-200 text-yellow-700 text-sm">
-          {missingCount} district{missingCount !== 1 ? 's' : ''} missing coordinates — run{' '}
-          <code className="font-mono text-xs bg-yellow-100 px-1 py-0.5 rounded">
-            npm run geocode:district-candidates
-          </code>{' '}
-          to populate them.
-        </div>
-      )}
-
       {/* Error state */}
       {error && (
         <div className="p-4 bg-red-50 border-b border-red-200 text-red-700 text-sm">
@@ -235,8 +218,8 @@ export default function IngestionMap({ search, stateFilter, statusFilter, totalC
         </div>
       )}
 
-      {/* Loading overlay */}
-      {(loading || !mapReady) && (
+      {/* Loading overlay — only on initial map init; avoid flash when refetching on filter change */}
+      {!mapReady && (
         <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
           <div className="text-center text-gray-400">
             <div className="animate-spin inline-block w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full mb-2" />
@@ -265,21 +248,11 @@ export default function IngestionMap({ search, stateFilter, statusFilter, totalC
       <div className="relative">
         <div ref={mapRef} style={{ minHeight: '500px', width: '100%' }} />
 
-        {/* Legend */}
-        {mapReady && (
-          <div className="absolute bottom-4 right-4 z-[1000] bg-white rounded-lg shadow-md border border-gray-200 p-3">
-            <p className="text-xs font-semibold text-gray-700 mb-2">Status</p>
-            <div className="space-y-1.5">
-              {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: STATUS_COLORS[key] }}
-                  />
-                  <span className="text-xs text-gray-600">{label}</span>
-                </div>
-              ))}
-            </div>
+        {/* Subtle "Updating" badge when refetching (avoids jarring full overlay) */}
+        {loading && mapReady && (
+          <div className="absolute top-3 left-3 z-[1000] px-2 py-1 bg-white/90 backdrop-blur-sm rounded shadow text-xs text-gray-500 flex items-center gap-1.5">
+            <div className="animate-spin w-3.5 h-3.5 border border-gray-300 border-t-gray-500 rounded-full" />
+            Updating…
           </div>
         )}
       </div>

@@ -34,6 +34,21 @@ interface Job {
   created_by_name: string | null;
 }
 
+interface ExistingAttribute {
+  key: string;
+  label: string;
+  value_type: string;
+  value_text: string | null;
+  value_number: number | null;
+  provenance: string;
+}
+
+interface RecordPreviewData {
+  candidate: { name: string; state: string; district_type: string; nces_district_id: string; district_id: string | null };
+  existing_attributes: ExistingAttribute[];
+  normalized: { name: string; state: string; district_type: string; nces_district_id: string };
+}
+
 const JOB_STATUS_COLORS: Record<string, string> = {
   queued: 'bg-gray-100 text-gray-600',
   running: 'bg-yellow-100 text-yellow-700',
@@ -69,7 +84,33 @@ export default function JobDetailPage() {
   const [tab, setTab] = useState<TabType>('all');
   const [retryLoading, setRetryLoading] = useState(false);
   const [retryError, setRetryError] = useState('');
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [expandedPreview, setExpandedPreview] = useState<RecordPreviewData | null>(null);
+  const [expandedLoading, setExpandedLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleRowClick = async (record: JobRecord) => {
+    if (expandedRecordId === record.id) {
+      setExpandedRecordId(null);
+      setExpandedPreview(null);
+      return;
+    }
+    setExpandedRecordId(record.id);
+    setExpandedPreview(null);
+    setExpandedLoading(true);
+    try {
+      const data = await api.get<{
+        candidate: { name: string; state: string; district_type: string; nces_district_id: string; district_id: string | null };
+        existing_attributes: ExistingAttribute[];
+        normalized: { name: string; state: string; district_type: string; nces_district_id: string };
+      }>(`/admin/ingestion/candidates/${record.candidate_id}/preview`);
+      setExpandedPreview(data);
+    } catch {
+      setExpandedPreview(null);
+    } finally {
+      setExpandedLoading(false);
+    }
+  };
 
   const loadJob = useCallback(async () => {
     try {
@@ -80,9 +121,10 @@ export default function JobDetailPage() {
       setRecords(data.records);
       setError('');
 
-      // Poll if job is still running
+      // Poll if job is still running (1s for responsive progress updates)
       if (!TERMINAL_STATUSES.has(data.job.status)) {
-        pollRef.current = setTimeout(loadJob, 2000);
+        if (pollRef.current) clearTimeout(pollRef.current);
+        pollRef.current = setTimeout(loadJob, 1000);
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
@@ -287,50 +329,111 @@ export default function JobDetailPage() {
             <p className="text-gray-400 text-sm">No records in this category</p>
           </div>
         ) : (
-          <div className="card overflow-hidden p-0">
+          <>
+            <p className="text-xs text-gray-500 mb-2">Click a row to expand and view processed data</p>
+            <div className="card overflow-hidden p-0">
             <div className="divide-y divide-gray-100">
               {filteredRecords.map((record) => (
-                <div key={record.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${RECORD_STATUS_COLORS[record.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {record.status.replace(/_/g, ' ')}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{record.district_name}</p>
-                        <p className="text-xs text-gray-400">{record.state} · {record.nces_district_id}</p>
+                <div key={record.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleRowClick(record)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRowClick(record)}
+                    className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${RECORD_STATUS_COLORS[record.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {record.status.replace(/_/g, ' ')}
+                        </span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{record.district_name}</p>
+                          <p className="text-xs text-gray-400">{record.state} · {record.nces_district_id}</p>
+                        </div>
+                        {expandedRecordId === record.id && (
+                          <span className="text-xs text-blue-500">
+                            {expandedLoading ? 'Loading...' : '▼'}
+                          </span>
+                        )}
                       </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(record.updated_at).toLocaleTimeString()}
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-400">
-                      {new Date(record.updated_at).toLocaleTimeString()}
-                    </span>
+
+                    {/* Error details */}
+                    {record.error_message && (
+                      <div className="mt-2 pl-4">
+                        <p className="text-xs text-red-600">
+                          {record.error_type && <span className="font-medium">{record.error_type}: </span>}
+                          {record.error_message}
+                        </p>
+                        {record.retry_eligible && (
+                          <span className="text-xs text-green-600">Retry eligible</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Warning details */}
+                    {record.warning_details?.warnings && (
+                      <div className="mt-2 pl-4">
+                        {record.warning_details.warnings.map((w, i) => (
+                          <p key={i} className="text-xs text-orange-600">{w}</p>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Error details */}
-                  {record.error_message && (
-                    <div className="mt-2 pl-4">
-                      <p className="text-xs text-red-600">
-                        {record.error_type && <span className="font-medium">{record.error_type}: </span>}
-                        {record.error_message}
-                      </p>
-                      {record.retry_eligible && (
-                        <span className="text-xs text-green-600">Retry eligible</span>
+                  {/* Expanded: processed data */}
+                  {expandedRecordId === record.id && (
+                    <div className="px-4 pb-4 pt-0 border-t border-gray-100 bg-gray-50/50">
+                      {expandedLoading ? (
+                        <p className="text-xs text-gray-500 py-2">Loading processed data...</p>
+                      ) : expandedPreview ? (
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Normalized fields</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                              <span className="text-gray-500">Name</span>
+                              <span>{expandedPreview.normalized.name}</span>
+                              <span className="text-gray-500">State</span>
+                              <span>{expandedPreview.normalized.state}</span>
+                              <span className="text-gray-500">District type</span>
+                              <span>{expandedPreview.normalized.district_type}</span>
+                              <span className="text-gray-500">NCES ID</span>
+                              <span className="font-mono">{expandedPreview.normalized.nces_district_id}</span>
+                            </div>
+                          </div>
+                          {expandedPreview.existing_attributes.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">District attributes (after ingestion)</p>
+                              <div className="space-y-1 text-xs">
+                                {expandedPreview.existing_attributes.map((a) => (
+                                  <div key={a.key} className="flex gap-2">
+                                    <span className="text-gray-500 min-w-[100px]">{a.label}</span>
+                                    <span>{a.value_text ?? (a.value_number != null ? String(a.value_number) : '—')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {expandedPreview.candidate.district_id && (
+                            <p className="text-xs text-gray-500">
+                              District ID: <span className="font-mono">{expandedPreview.candidate.district_id}</span>
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 py-2">Could not load processed data</p>
                       )}
-                    </div>
-                  )}
-
-                  {/* Warning details */}
-                  {record.warning_details?.warnings && (
-                    <div className="mt-2 pl-4">
-                      {record.warning_details.warnings.map((w, i) => (
-                        <p key={i} className="text-xs text-orange-600">{w}</p>
-                      ))}
                     </div>
                   )}
                 </div>
               ))}
             </div>
           </div>
+          </>
         )}
       </div>
     </>

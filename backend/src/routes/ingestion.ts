@@ -108,20 +108,28 @@ const KNOWN_LAT_COLS = ['LAT', 'LATY', 'LATITUDE', 'Y', 'POINT_Y', 'LAT1516', 'L
 const KNOWN_LON_COLS = ['LON', 'LONY', 'LONGITUDE', 'X', 'POINT_X', 'LON1516', 'LON1617', 'LON1718', 'LON1819'];
 const KNOWN_LOCALE_COLS = ['LOCALE', 'LOCALE_CD', 'LOCALE17', 'LOCALE15', 'LCITY15'];
 
+/** District size from enrollment: Small <2,500, Medium 2,500–10,000, Large 10,000–25,000, XL 25,000+ */
+function deriveDistrictSizeFromEnrollment(enrollment: number | null): string {
+  if (enrollment == null || enrollment < 0) return 'unknown';
+  if (enrollment < 2500) return 'small';
+  if (enrollment < 10000) return 'medium';
+  if (enrollment < 25000) return 'large';
+  return 'xl';
+}
+
 /** NCES urban-centric locale: 11-13 City, 21-23 Suburb, 31-33 Town, 41-43 Rural */
 function deriveLocaleFromCode(code: string | null): {
   locale_code: string | null;
   locale_type: string | null;
   locale_subtype: string | null;
   locale_size: string | null;
-  district_type: string;
 } {
   if (!code?.trim()) {
-    return { locale_code: null, locale_type: null, locale_subtype: null, locale_size: null, district_type: 'unknown' };
+    return { locale_code: null, locale_type: null, locale_subtype: null, locale_size: null };
   }
   const num = parseInt(code.replace(/\D/g, ''), 10);
   if (isNaN(num) || num < 11 || num > 43) {
-    return { locale_code: code.trim(), locale_type: null, locale_subtype: null, locale_size: null, district_type: 'unknown' };
+    return { locale_code: code.trim(), locale_type: null, locale_subtype: null, locale_size: null };
   }
   const tens = Math.floor(num / 10);
   const ones = num % 10;
@@ -138,14 +146,11 @@ function deriveLocaleFromCode(code: string | null): {
   const sizeMap: Record<number, string> = { 1: 'Large', 2: 'Medium', 3: 'Small' };
   const locale_size =
     tens <= 2 && ones >= 1 && ones <= 3 ? sizeMap[ones] ?? null : null;
-  const district_type =
-    locale_size === 'Large' ? 'large' : locale_size === 'Medium' ? 'mid' : locale_size === 'Small' ? 'small' : 'unknown';
   return {
     locale_code: String(num).padStart(2, '0'),
     locale_type,
     locale_subtype,
     locale_size: locale_size ?? null,
-    district_type,
   };
 }
 
@@ -197,7 +202,7 @@ const candidateFilterSchema = z.object({
   search: z.string().optional(),
   state: z.string().optional(),
   status: z.string().optional(),
-  district_type: z.enum(['large', 'mid', 'small']).optional(),
+  district_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
   enrollment_min: z.coerce.number().int().min(0).optional(),
   enrollment_max: z.coerce.number().int().min(0).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -208,7 +213,7 @@ const mapFilterSchema = z.object({
   search: z.string().optional(),
   state: z.string().optional(),
   status: z.string().optional(),
-  district_type: z.enum(['large', 'mid', 'small']).optional(),
+  district_size: z.enum(['small', 'medium', 'large', 'xl']).optional(),
   enrollment_min: z.coerce.number().int().min(0).optional(),
   enrollment_max: z.coerce.number().int().min(0).optional(),
 });
@@ -220,7 +225,7 @@ const triggerSchema = z.object({
 
 // Data quality rules: fields required for ingestion readiness
 const REQUIRED_FIELDS = ['name', 'state', 'nces_district_id'];
-const RECOMMENDED_FIELDS = ['district_type'];
+const RECOMMENDED_FIELDS = ['district_size'];
 
 function assessDataQuality(candidate: Record<string, unknown>): {
   status: 'ready' | 'warning' | 'blocked';
@@ -250,7 +255,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, district_type, enrollment_min, enrollment_max, page, limit } = parsed.data;
+      const { search, state, status, district_size, enrollment_min, enrollment_max, page, limit } = parsed.data;
       const offset = (page - 1) * limit;
 
       const conditions: string[] = [];
@@ -269,9 +274,9 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         conditions.push(`dc.status = $${idx++}`);
         values.push(status);
       }
-      if (district_type) {
-        conditions.push(`dc.district_type = $${idx++}`);
-        values.push(district_type);
+      if (district_size) {
+        conditions.push(`dc.district_size = $${idx++}`);
+        values.push(district_size);
       }
       if (enrollment_min != null) {
         conditions.push(`dc.enrollment >= $${idx++}`);
@@ -292,7 +297,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
 
       values.push(limit, offset);
       const result = await pool.query(
-        `SELECT dc.id, dc.nces_district_id, dc.name, dc.state, dc.district_type,
+        `SELECT dc.id, dc.nces_district_id, dc.name, dc.state, dc.district_size,
                 dc.locale_code, dc.locale_type, dc.locale_subtype, dc.locale_size,
                 dc.status, dc.missing_data_indicator, dc.last_refresh_at,
                 dc.district_id, dc.enrollment, dc.nces_year, dc.created_at,
@@ -346,7 +351,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { search, state, status, district_type, enrollment_min, enrollment_max } = parsed.data;
+      const { search, state, status, district_size, enrollment_min, enrollment_max } = parsed.data;
 
       const conditions: string[] = ['dc.latitude IS NOT NULL', 'dc.longitude IS NOT NULL'];
       const values: unknown[] = [];
@@ -364,9 +369,9 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         conditions.push(`dc.status = $${idx++}`);
         values.push(status);
       }
-      if (district_type) {
-        conditions.push(`dc.district_type = $${idx++}`);
-        values.push(district_type);
+      if (district_size) {
+        conditions.push(`dc.district_size = $${idx++}`);
+        values.push(district_size);
       }
       if (enrollment_min != null) {
         conditions.push(`dc.enrollment >= $${idx++}`);
@@ -484,7 +489,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         normalized: {
           name: candidate.name,
           state: candidate.state,
-          district_type: candidate.district_type,
+          district_size: candidate.district_size,
           nces_district_id: candidate.nces_district_id,
         },
         missing_fields: missingFields,
@@ -918,7 +923,16 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         const sets = batch.map((_, idx) => `($${idx * 2 + 1}, $${idx * 2 + 2})`).join(', ');
         const values = batch.flatMap(([leaid, enr]) => [leaid, enr]);
         const result = await pool.query(
-          `UPDATE district_candidates dc SET enrollment = v.enr, updated_at = now()
+          `UPDATE district_candidates dc SET
+             enrollment = v.enr,
+             district_size = CASE
+               WHEN v.enr IS NULL OR v.enr < 0 THEN 'unknown'
+               WHEN v.enr < 2500 THEN 'small'
+               WHEN v.enr < 10000 THEN 'medium'
+               WHEN v.enr < 25000 THEN 'large'
+               ELSE 'xl'
+             END,
+             updated_at = now()
            FROM (VALUES ${sets}) AS v(nces_district_id, enr)
            WHERE dc.nces_district_id = v.nces_district_id`,
           values
@@ -1057,7 +1071,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         paddedLeaid: string;
         name: string;
         state: string;
-        districtType: string;
+        districtSize: string;
         enrollment: number | null;
         ncesYear: string | null;
         lat: number | null;
@@ -1086,7 +1100,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           paddedLeaid,
           name,
           state: state.toUpperCase(),
-          districtType: locale.district_type,
+          districtSize: deriveDistrictSizeFromEnrollment(isNaN(enrollment as number) ? null : enrollment),
           enrollment: isNaN(enrollment as number) ? null : enrollment,
           ncesYear: nces_year ?? null,
           lat: edgeData?.lat ?? null,
@@ -1109,19 +1123,19 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
             `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, now(), now())`
           );
           values.push(
-            r.paddedLeaid, r.name, r.state, r.districtType, r.enrollment, r.ncesYear,
+            r.paddedLeaid, r.name, r.state, r.districtSize, r.enrollment, r.ncesYear,
             r.lat, r.lon, r.geocodedAt, r.localeCode, r.localeType, r.localeSubtype, r.localeSize
           );
         });
         try {
           const result = await pool.query(
             `INSERT INTO district_candidates
-               (nces_district_id, name, state, district_type, enrollment, nces_year,
+               (nces_district_id, name, state, district_size, enrollment, nces_year,
                 latitude, longitude, geocoded_at, locale_code, locale_type, locale_subtype, locale_size,
                 last_refresh_at, updated_at)
              VALUES ${placeholders.join(', ')}
              ON CONFLICT (nces_district_id) DO UPDATE SET
-               name = EXCLUDED.name, state = EXCLUDED.state, district_type = EXCLUDED.district_type,
+               name = EXCLUDED.name, state = EXCLUDED.state, district_size = EXCLUDED.district_size,
                enrollment = EXCLUDED.enrollment, nces_year = EXCLUDED.nces_year,
                latitude = COALESCE(EXCLUDED.latitude, district_candidates.latitude),
                longitude = COALESCE(EXCLUDED.longitude, district_candidates.longitude),
@@ -1384,7 +1398,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         paddedLeaid: string;
         name: string;
         state: string;
-        districtType: string;
+        districtSize: string;
         enrollment: number | null;
         ncesYear: string | null;
         lat: number | null;
@@ -1421,7 +1435,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
           paddedLeaid,
           name,
           state: state.toUpperCase(),
-          districtType: locale.district_type,
+          districtSize: deriveDistrictSizeFromEnrollment(isNaN(enrollment as number) ? null : enrollment),
           enrollment: isNaN(enrollment as number) ? null : enrollment,
           ncesYear,
           lat: edgeData?.lat ?? null,
@@ -1448,7 +1462,7 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
             r.paddedLeaid,
             r.name,
             r.state,
-            r.districtType,
+            r.districtSize,
             r.enrollment,
             r.ncesYear,
             r.lat,
@@ -1463,14 +1477,14 @@ export default async function ingestionRoutes(fastify: FastifyInstance) {
         try {
           const result = await pool.query(
             `INSERT INTO district_candidates
-               (nces_district_id, name, state, district_type, enrollment, nces_year,
+               (nces_district_id, name, state, district_size, enrollment, nces_year,
                 latitude, longitude, geocoded_at, locale_code, locale_type, locale_subtype, locale_size,
                 last_refresh_at, updated_at)
              VALUES ${placeholders.join(', ')}
              ON CONFLICT (nces_district_id) DO UPDATE SET
                name = EXCLUDED.name,
                state = EXCLUDED.state,
-               district_type = EXCLUDED.district_type,
+               district_size = EXCLUDED.district_size,
                enrollment = EXCLUDED.enrollment,
                nces_year = EXCLUDED.nces_year,
                latitude = COALESCE(EXCLUDED.latitude, district_candidates.latitude),

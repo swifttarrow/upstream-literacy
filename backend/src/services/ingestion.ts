@@ -254,10 +254,10 @@ export async function processIngestionJob(jobId: string): Promise<void> {
       const warnings: string[] = [];
       const attributes: Record<string, string | number> = {
         state: record.state,
-        district_type: record.district_type || 'unknown',
+        district_size: record.district_size || 'unknown',
       };
-      if (!record.district_type) {
-        warnings.push('district_type missing — defaulted to unknown');
+      if (!record.district_size) {
+        warnings.push('district_size missing — defaulted to unknown');
       }
       if (record.latitude == null || record.longitude == null) {
         warnings.push('Missing coordinates — not in map view until geocoded');

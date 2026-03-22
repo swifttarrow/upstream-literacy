@@ -17,7 +17,7 @@ interface CandidateRecord {
   nces_district_id: string;
   name: string;
   state: string;
-  district_type: string;
+  district_size: string;
 }
 
 async function seedDistrictCandidates() {
@@ -33,11 +33,11 @@ async function seedDistrictCandidates() {
 
     for (const candidate of candidates) {
       const result = await client.query(
-        `INSERT INTO district_candidates (nces_district_id, name, state, district_type)
+        `INSERT INTO district_candidates (nces_district_id, name, state, district_size)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (nces_district_id) DO NOTHING
          RETURNING id`,
-        [candidate.nces_district_id, candidate.name, candidate.state, candidate.district_type]
+        [candidate.nces_district_id, candidate.name, candidate.state, candidate.district_size]
       );
 
       if (result.rows.length > 0) {

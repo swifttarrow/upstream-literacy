@@ -5,7 +5,7 @@ CREATE TABLE district_candidates (
   nces_district_id text UNIQUE NOT NULL,
   name text NOT NULL,
   state text NOT NULL,
-  district_type text NOT NULL, -- large|mid|small
+  district_type text NOT NULL, -- renamed to district_size in migration 17; small|medium|large|xl|unknown (enrollment-based)
   status text NOT NULL DEFAULT 'not_ingested', -- not_ingested|ready_to_ingest|in_progress|ingested|ingested_with_warnings|failed
   district_id uuid REFERENCES districts (id) ON DELETE SET NULL, -- populated after ingestion
   missing_data_indicator boolean NOT NULL DEFAULT false,

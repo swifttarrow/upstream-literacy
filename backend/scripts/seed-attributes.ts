@@ -18,7 +18,7 @@ const ATTRIBUTE_DEFINITIONS = [
   { key: 'frl_pct', label: 'Free/Reduced Lunch %', value_type: 'number', sort_order: 3 },
   { key: 'el_pct', label: 'English Learner %', value_type: 'number', sort_order: 4 },
   { key: 'grade_bands', label: 'Grade Bands', value_type: 'text', sort_order: 5 },
-  { key: 'district_type', label: 'District Type', value_type: 'text', sort_order: 6 },
+  { key: 'district_size', label: 'District Size', value_type: 'text', sort_order: 6 },
   { key: 'frl_bucket', label: 'FRL Bucket', value_type: 'text', sort_order: 7 },
   { key: 'el_bucket', label: 'EL Bucket', value_type: 'text', sort_order: 8 },
   { key: 'display_name', label: 'Display Name', value_type: 'text', sort_order: 9 },

@@ -32,6 +32,8 @@ const SQL_FILE_ORDER = [
   '13_nces_upload_fields.sql',
   '14_backfill_missing_coordinates_warnings.sql',
   '15_locale_columns.sql',
+  '16_district_type_from_enrollment.sql',
+  '17_rename_district_type_to_district_size.sql',
 ];
 
 async function migrate() {

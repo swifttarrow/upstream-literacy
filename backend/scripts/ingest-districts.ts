@@ -27,7 +27,7 @@ const SAMPLE_DISTRICTS = [
       frl_pct: 58.3,
       el_pct: 12.1,
       grade_bands: 'K-12',
-      district_type: 'urban',
+      district_size: 'large',
     },
   },
   {
@@ -43,7 +43,7 @@ const SAMPLE_DISTRICTS = [
       frl_pct: 71.2,
       el_pct: 28.5,
       grade_bands: 'K-12',
-      district_type: 'rural',
+      district_size: 'small',
     },
   },
   {
@@ -59,7 +59,7 @@ const SAMPLE_DISTRICTS = [
       frl_pct: 45.6,
       el_pct: 22.3,
       grade_bands: 'K-12',
-      district_type: 'urban',
+      district_size: 'large',
     },
   },
   {
@@ -75,7 +75,7 @@ const SAMPLE_DISTRICTS = [
       frl_pct: 34.8,
       el_pct: 8.7,
       grade_bands: 'K-12',
-      district_type: 'suburban',
+      district_size: 'medium',
     },
   },
   {
@@ -91,7 +91,7 @@ const SAMPLE_DISTRICTS = [
       frl_pct: 52.1,
       el_pct: 15.4,
       grade_bands: 'K-8',
-      district_type: 'charter',
+      district_size: 'medium',
     },
   },
 ];

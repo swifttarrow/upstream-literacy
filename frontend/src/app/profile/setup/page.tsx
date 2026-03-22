@@ -1,10 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
 import NavBar from '@/components/NavBar';
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxSeparator,
+  ComboboxValue,
+  useComboboxAnchor,
+} from '@/components/ui/combobox';
 
 interface District {
   id: string;
@@ -31,15 +47,18 @@ export default function ProfileSetupPage() {
   const [districts, setDistricts] = useState<District[]>([]);
   const [problems, setProblems] = useState<ProblemStatement[]>([]);
   const [districtSearch, setDistrictSearch] = useState('');
+  const [districtSearching, setDistrictSearching] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const recommendationsRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     full_name: '',
     professional_role: '',
     bio: '',
     district_id: '',
-    primary_problem_id: '',
-    secondary_problem_ids: [] as string[],
+    problem_ids: [] as string[], // up to 7; first = primary, rest = secondary
   });
+  const problemComboboxAnchor = useComboboxAnchor();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -57,35 +76,23 @@ export default function ProfileSetupPage() {
       ]);
 
       const user = userRes.user;
+      const selections = user.problem_selections as Array<{ problem_statement_id: string; is_primary: boolean }> || [];
+      const primary = selections.find((s) => s.is_primary);
+      const secondary = selections.filter((s) => !s.is_primary);
+      const problemIds = primary
+        ? [primary.problem_statement_id, ...secondary.map((s) => s.problem_statement_id)]
+        : secondary.map((s) => s.problem_statement_id);
+
       setFormData({
         full_name: String(user.full_name || ''),
         professional_role: String(user.professional_role || ''),
         bio: String(user.bio || ''),
         district_id: String(user.district_id || ''),
-        primary_problem_id: '',
-        secondary_problem_ids: [],
+        problem_ids: problemIds,
       });
-
-      // Set problem selections from user data
-      const selections = user.problem_selections as Array<{ problem_statement_id: string; is_primary: boolean }> || [];
-      const primary = selections.find((s) => s.is_primary);
-      const secondary = selections.filter((s) => !s.is_primary);
-
-      if (primary) {
-        setFormData((prev) => ({ ...prev, primary_problem_id: primary.problem_statement_id }));
-      }
-      if (secondary.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          secondary_problem_ids: secondary.map((s) => s.problem_statement_id),
-        }));
-      }
 
       setProblems(problemsRes.statements);
       setLoading(false);
-
-      // Load districts
-      loadDistricts('');
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.push('/login');
@@ -96,45 +103,118 @@ export default function ProfileSetupPage() {
     }
   };
 
-  const loadDistricts = async (search: string) => {
+  const loadDistricts = useCallback(async (search: string) => {
+    if (!search.trim()) {
+      setDistricts([]);
+      return;
+    }
+    setDistrictSearching(true);
     try {
       const data = await api.get<{ districts: District[] }>(
-        `/districts?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`
+        `/districts?limit=50&search=${encodeURIComponent(search.trim())}`
       );
       setDistricts(data.districts);
     } catch {
-      // ignore
+      setDistricts([]);
+    } finally {
+      setDistrictSearching(false);
     }
+  }, []);
+
+  // Debounced district search
+  useEffect(() => {
+    if (!districtSearch.trim()) {
+      setDistricts([]);
+      setShowRecommendations(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      loadDistricts(districtSearch);
+      setShowRecommendations(true);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [districtSearch, loadDistricts]);
+
+  // Close recommendations when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (recommendationsRef.current && !recommendationsRef.current.contains(e.target as Node)) {
+        setShowRecommendations(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectDistrict = (d: District) => {
+    const displayName = `${d.name}${d.state_region ? ` (${d.state_region})` : ''}`;
+    setFormData((p) => ({ ...p, district_id: d.id }));
+    setDistrictSearch(displayName);
+    setShowRecommendations(false);
+    setDistricts([]);
   };
 
-  const handleDistrictSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDistrictSearch(e.target.value);
-    loadDistricts(e.target.value);
+  const clearDistrict = () => {
+    setFormData((p) => ({ ...p, district_id: '' }));
+    setDistrictSearch('');
+    setShowRecommendations(false);
+    setDistricts([]);
   };
 
-  const toggleSecondary = (id: string) => {
+  // Group problems by category for combobox
+  const problemGroups = useMemo(() => {
+    const byCategory = new Map<string, ProblemStatement[]>();
+    for (const p of problems) {
+      const list = byCategory.get(p.category_name) || [];
+      list.push(p);
+      byCategory.set(p.category_name, list);
+    }
+    const order = Array.from(new Set(problems.map((p) => p.category_name)));
+    return order.map((cat) => ({
+      value: cat,
+      items: byCategory.get(cat) ?? [],
+    }));
+  }, [problems]);
+
+  const selectedProblems = useMemo(
+    () =>
+      formData.problem_ids
+        .map((id) => problems.find((p) => p.id === id))
+        .filter((p): p is ProblemStatement => !!p),
+    [formData.problem_ids, problems]
+  );
+
+  const handleProblemValueChange = useCallback((value: ProblemStatement[]) => {
+    const capped = value.slice(0, 7);
     setFormData((prev) => ({
       ...prev,
-      secondary_problem_ids: prev.secondary_problem_ids.includes(id)
-        ? prev.secondary_problem_ids.filter((x) => x !== id)
-        : [...prev.secondary_problem_ids, id],
+      problem_ids: capped.map((p) => p.id),
     }));
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.district_id) {
+      setError('Please select your district');
+      return;
+    }
+    if (formData.problem_ids.length === 0) {
+      setError('Please select at least one problem statement');
+      return;
+    }
     setSaving(true);
     setError('');
     setSuccess('');
 
+    const [primaryId, ...secondaryIds] = formData.problem_ids;
     try {
       await api.patch('/users/me', {
         full_name: formData.full_name || undefined,
         professional_role: formData.professional_role || undefined,
         bio: formData.bio || undefined,
         district_id: formData.district_id || undefined,
-        primary_problem_id: formData.primary_problem_id || undefined,
-        secondary_problem_ids: formData.secondary_problem_ids,
+        primary_problem_id: primaryId,
+        secondary_problem_ids: secondaryIds,
       });
 
       setSuccess('Profile saved successfully!');
@@ -145,14 +225,6 @@ export default function ProfileSetupPage() {
       setSaving(false);
     }
   };
-
-  // Group problems by category
-  const problemsByCategory = problems.reduce((acc, p) => {
-    const cat = p.category_name;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(p);
-    return acc;
-  }, {} as Record<string, ProblemStatement[]>);
 
   if (loading) {
     return (
@@ -169,7 +241,7 @@ export default function ProfileSetupPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Complete your profile</h1>
           <p className="text-gray-600 mt-1">
-            Help us connect you with the right peers. Your district and primary challenge are required.
+            Help us connect you with the right peers. Your district and at least one problem statement are required.
           </p>
         </div>
 
@@ -222,101 +294,129 @@ export default function ProfileSetupPage() {
           </div>
 
           {/* District */}
-          <div className="card">
+          <div className="card" ref={recommendationsRef}>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Your district <span className="text-red-500">*</span></h2>
-            <div>
-              <input
-                type="text"
-                value={districtSearch}
-                onChange={handleDistrictSearch}
-                className="input-field mb-3"
-                placeholder="Search districts..."
-              />
-              <select
-                value={formData.district_id}
-                onChange={(e) => setFormData((p) => ({ ...p, district_id: e.target.value }))}
-                className="input-field"
-                required
-              >
-                <option value="">Select your district</option>
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}{d.state_region ? ` (${d.state_region})` : ''}
-                  </option>
-                ))}
-              </select>
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={districtSearch}
+                  onChange={(e) => setDistrictSearch(e.target.value)}
+                  onFocus={() => districtSearch && setShowRecommendations(true)}
+                  className="input-field flex-1"
+                  placeholder="Search districts..."
+                  autoComplete="off"
+                />
+                {formData.district_id && (
+                  <button
+                    type="button"
+                    onClick={clearDistrict}
+                    className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+                    aria-label="Clear district"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {districtSearching && (
+                <div className="absolute top-full left-0 right-0 mt-1 py-2 text-sm text-gray-500 text-center">
+                  Searching...
+                </div>
+              )}
+              {showRecommendations && !districtSearching && districts.length > 0 && (
+                <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                  {districts.map((d) => {
+                    const displayName = `${d.name}${d.state_region ? ` (${d.state_region})` : ''}`;
+                    return (
+                      <li key={d.id}>
+                        <button
+                          type="button"
+                          onClick={() => selectDistrict(d)}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          {displayName}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {showRecommendations && !districtSearching && districtSearch.trim() && districts.length === 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 py-3 px-4 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg shadow-lg">
+                  No districts found
+                </div>
+              )}
+              <input type="hidden" name="district_id" value={formData.district_id} />
             </div>
           </div>
 
-          {/* Primary Challenge */}
+          {/* Problem Statements */}
           <div className="card">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">
-              Primary challenge <span className="text-red-500">*</span>
+              Problem statements <span className="text-red-500">*</span>
             </h2>
             <p className="text-sm text-gray-500 mb-4">
-              The most important challenge your district is working on right now
+              Search and select up to 7 challenges your district is working on. The first selection is your primary focus.
             </p>
 
-            {Object.entries(problemsByCategory).map(([category, probs]) => (
-              <div key={category} className="mb-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  {category}
-                </h3>
-                <div className="space-y-2">
-                  {probs.map((p) => (
-                    <label key={p.id} className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="primary_problem"
-                        value={p.id}
-                        checked={formData.primary_problem_id === p.id}
-                        onChange={() => setFormData((prev) => ({ ...prev, primary_problem_id: p.id }))}
-                        className="mt-1"
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{p.label}</div>
-                        {p.description && (
-                          <div className="text-xs text-gray-500">{p.description}</div>
-                        )}
-                      </div>
-                    </label>
-                  ))}
+            {problems.length === 0 ? (
+              <p className="text-sm text-amber-600 py-2">
+                No problem statements are available yet. Your administrator may need to run the seed.
+              </p>
+            ) : (
+              <Combobox
+                items={problemGroups}
+                multiple
+                autoHighlight
+                value={selectedProblems}
+                onValueChange={handleProblemValueChange}
+                itemToStringValue={(p: ProblemStatement) => p.label}
+              >
+                <div ref={problemComboboxAnchor} className="w-full rounded-lg border border-input min-h-10 flex flex-col">
+                  <ComboboxChips className="w-full !border-0 !min-h-0 !p-2 flex-col items-stretch">
+                    <ComboboxValue>
+                      {(values: ProblemStatement[]) => (
+                        <>
+                          <ComboboxChipsInput placeholder="Search problem statements..." className="w-full shrink-0 !min-w-0" />
+                          <div className="flex flex-wrap gap-1 w-full min-w-0">
+                            {values.map((p, idx) => (
+                              <ComboboxChip key={p.id}>
+                                {idx === 0 && (
+                                  <span className="text-muted-foreground font-medium mr-1">Primary:</span>
+                                )}
+                                {p.label}
+                              </ComboboxChip>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </ComboboxValue>
+                  </ComboboxChips>
                 </div>
-              </div>
-            ))}
+                <ComboboxContent anchor={problemComboboxAnchor}>
+                  <ComboboxEmpty>No problem statements found.</ComboboxEmpty>
+                  <ComboboxList className="max-h-[250px]">
+                    {(group: { value: string; items: ProblemStatement[] }, index: number) => (
+                      <ComboboxGroup key={group.value} items={group.items}>
+                        <ComboboxLabel>{group.value}</ComboboxLabel>
+                        <ComboboxCollection>
+                          {(item: ProblemStatement) => (
+                            <ComboboxItem key={item.id} value={item}>
+                              {item.label}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxCollection>
+                        {index < problemGroups.length - 1 && <ComboboxSeparator />}
+                      </ComboboxGroup>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+            )}
+            {formData.problem_ids.length >= 7 && (
+              <p className="text-xs text-muted-foreground mt-2">Maximum of 7 problem statements selected.</p>
+            )}
           </div>
-
-          {/* Secondary Challenges */}
-          {problems.length > 0 && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">Additional challenges</h2>
-              <p className="text-sm text-gray-500 mb-4">Other areas you are working on (optional)</p>
-
-              {Object.entries(problemsByCategory).map(([category, probs]) => (
-                <div key={category} className="mb-4">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    {category}
-                  </h3>
-                  <div className="space-y-2">
-                    {probs
-                      .filter((p) => p.id !== formData.primary_problem_id)
-                      .map((p) => (
-                        <label key={p.id} className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            value={p.id}
-                            checked={formData.secondary_problem_ids.includes(p.id)}
-                            onChange={() => toggleSecondary(p.id)}
-                            className="mt-1"
-                          />
-                          <div className="text-sm text-gray-900">{p.label}</div>
-                        </label>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           <button type="submit" className="btn-primary w-full" disabled={saving}>
             {saving ? 'Saving...' : 'Save profile'}

@@ -9,7 +9,7 @@ Implementation plan for the District Community Matching Platform per [docs/prds/
 | Area | Status | Notes |
 |------|--------|------|
 | **PRD** | Complete | Full product requirements, MVP scope, NFRs |
-| **Schema** | Complete | PostgreSQL DDL in `schema/01_extensions_enums.sql` through `schema/10_triggers.sql`; documented in `docs/db-schema.md` |
+| **Schema** | Complete | PostgreSQL DDL in `schema/01_extensions_enums.sql` through `schema/12_ingestion_console.sql`; documented in `docs/db-schema.md` |
 | **Research / decisions** | Complete | `developer-log.md` captures architecture and product decisions |
 | **Application code** | None | No backend API, frontend, migrations runner, or infra |
 | **docs/plans/** | New | This plan |
@@ -17,7 +17,7 @@ Implementation plan for the District Community Matching Platform per [docs/prds/
 **Constraints discovered:**
 - Schema is raw SQL (no migration runner); must run in order 01→10
 - Schema expects `password_hash` (auth via credentials) with optional external IdP later
-- Group max 8 participants enforced by DB trigger (`schema/10_triggers.sql`)
+- Group max 8 participants enforced by DB trigger (`schema/11_triggers.sql`)
 - Direct conversations use `conversation_direct_pairs` with `(user_low_id, user_high_id)` uniqueness
 - Moderation content visibility is app-layer; schema does not implement RLS
 

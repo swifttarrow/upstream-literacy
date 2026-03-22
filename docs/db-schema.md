@@ -463,7 +463,7 @@ Messaging gate: only users with `status = 'accepted'` can direct message. Groups
 8. `problem_categories`  
 9. `problem_statements`  
 10. `user_problem_selections`  
-11. `user_connections` (see `schema/06b_user_connections.sql`)  
+11. `user_connections` (see `schema/07_user_connections.sql`)  
 12. `conversations`  
 13. `conversation_direct_pairs`  
 14. `conversation_participants`  
@@ -479,7 +479,7 @@ Messaging gate: only users with `status = 'accepted'` can direct message. Groups
 
 ## 11. SQL DDL
 
-See **`schema/01_extensions_enums.sql`** through **`schema/10_triggers.sql`** (in order, including **`schema/06b_user_connections.sql`** after `06_user_problem_selections.sql`) for PostgreSQL `CREATE TYPE` / `CREATE TABLE` / indexes / triggers.
+See **`schema/01_extensions_enums.sql`** through **`schema/12_ingestion_console.sql`** (in order) for PostgreSQL `CREATE TYPE` / `CREATE TABLE` / indexes / triggers.
 
 ---
 

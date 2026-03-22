@@ -10,7 +10,7 @@ Add `latitude`, `longitude`, and `geocoded_at` columns to `district_candidates` 
 - [x] `ALTER TABLE district_candidates ADD COLUMN latitude numeric(9,6)` (nullable)
 - [x] `ALTER TABLE district_candidates ADD COLUMN longitude numeric(9,6)` (nullable)
 - [x] `ALTER TABLE district_candidates ADD COLUMN geocoded_at timestamptz` (nullable)
-- [x] Migration runs after `11_ingestion_console.sql` (existing runner uses numeric order)
+- [x] Migration runs after `12_ingestion_console.sql` (existing runner uses numeric order)
 
 ## Notes
 

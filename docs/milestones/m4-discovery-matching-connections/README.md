@@ -14,7 +14,7 @@ Implement discovery API (suggested connections) and LinkedIn-style connections: 
 
 | Area | Changes |
 |------|---------|
-| **Schema** | `user_connections` table exists (schema/06b); verify migration includes it |
+| **Schema** | `user_connections` table exists (schema/07_user_connections.sql); verify migration includes it |
 | **Matching** | `GET /discovery/matches` with query params: problemId, districtFilters, professionalRole, stateRegion, etc. |
 | **Filtering** | DB-level filters; exclude suspended, non-approved |
 | **Ranking** | App-layer heuristic: primary problem match > secondary > district similarity; deterministic, explainable |

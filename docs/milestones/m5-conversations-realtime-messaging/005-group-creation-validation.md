@@ -8,7 +8,7 @@ Enforce max 8 participants on group creation. App-layer check before insert; DB 
 
 - [ ] Before creating group: validate participant_ids length <= 8
 - [ ] Validate all participant_ids are connected to requester
-- [ ] Confirm DB trigger exists in schema/10_triggers.sql for max 8 active participants
+- [ ] Confirm DB trigger exists in schema/11_triggers.sql for max 8 active participants
 - [ ] Return 400 with clear message when validation fails
 - [ ] Zod: max 8 items in participant_ids array
 

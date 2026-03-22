@@ -6,14 +6,14 @@ Ensure `user_connections` table is included in migration run and has required co
 
 ## Deliverables
 
-- [ ] Confirm `schema/06b_user_connections.sql` runs after 06 in migration script
+- [ ] Confirm `schema/07_user_connections.sql` runs after 06 in migration script
 - [ ] Verify indexes: user_a_id, user_b_id, status, requested_by_user_id
 - [ ] Document schema for connection status enum (pending, accepted)
 - [ ] If missing, add any required columns
 
 ## Notes
 
-- Schema file: `schema/06b_user_connections.sql`
+- Schema file: `schema/07_user_connections.sql`
 - CHECK: user_a_id < user_b_id for canonical ordering
 
 ## Verification

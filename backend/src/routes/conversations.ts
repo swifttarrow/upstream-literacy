@@ -34,8 +34,7 @@ async function isConnected(userAId: string, userBId: string): Promise<boolean> {
 
 async function broadcastMessage(
   conversationId: string,
-  messageData: Record<string, unknown>,
-  senderIdToSkip?: string
+  messageData: Record<string, unknown>
 ): Promise<void> {
   // Get all active participants
   const participantsResult = await pool.query(
@@ -47,7 +46,6 @@ async function broadcastMessage(
   const payload = JSON.stringify({ event: 'new_message', data: messageData });
 
   for (const row of participantsResult.rows) {
-    if (row.user_id === senderIdToSkip) continue;
     const conns = wsConnections.get(row.user_id);
     if (conns) {
       conns.forEach((ws) => {
@@ -353,7 +351,7 @@ export default async function conversationsRoutes(fastify: FastifyInstance) {
       const senderName = senderResult.rows[0]?.full_name || 'Someone';
 
       // Broadcast via WebSocket
-      await broadcastMessage(id, { ...message, sender_name: senderName }, currentUserId);
+      await broadcastMessage(id, { ...message, sender_name: senderName });
 
       // Notify other participants
       const participantsResult = await pool.query(

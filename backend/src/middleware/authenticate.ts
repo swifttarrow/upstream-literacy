@@ -7,9 +7,15 @@ export async function authenticate(
   reply: FastifyReply
 ): Promise<void> {
   try {
-    await request.jwtVerify();
-    const payload = request.user as JwtPayload;
-    request.jwtUser = payload;
+    // WebSocket handshake sends token in query (?token=...); jwtVerify only checks Authorization header
+    const queryToken = (request.query as { token?: string })?.token;
+    if (queryToken) {
+      request.jwtUser = await request.server.jwt.verify<JwtPayload>(queryToken);
+    } else {
+      await request.jwtVerify();
+      request.jwtUser = request.user as JwtPayload;
+    }
+    const payload = request.jwtUser;
 
     // Check if user is suspended
     const result = await pool.query(

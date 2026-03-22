@@ -22,8 +22,10 @@ interface Participant {
   left_at: string | null;
 }
 
+// Backend serves WebSocket at /api/ws; ensure path is correct when API_BASE omits /api
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
+const WS_PATH = API_BASE.includes('/api') ? '/ws' : '/api/ws';
 
 export default function ConversationPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -40,6 +42,38 @@ export default function ConversationPage({ params }: { params: { id: string } })
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const idRef = useRef(id);
+  idRef.current = id;
+
+  const connectWebSocket = useCallback(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const ws = new WebSocket(`${WS_BASE}${WS_PATH}?token=${token}`);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.event === 'new_message' && msg.data?.conversation_id === idRef.current) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.data.id)) return prev;
+            return [...prev, msg.data];
+          });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ event: 'subscribe', conversation_id: idRef.current }));
+    };
+
+    ws.onclose = () => {
+      setTimeout(connectWebSocket, 3000);
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -52,7 +86,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
     return () => {
       wsRef.current?.close();
     };
-  }, [id, router]);
+  }, [id, router, connectWebSocket]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -81,38 +115,6 @@ export default function ConversationPage({ params }: { params: { id: string } })
       setLoading(false);
     }
   };
-
-  const connectWebSocket = useCallback(() => {
-    const token = getToken();
-    if (!token) return;
-
-    const ws = new WebSocket(`${WS_BASE}/ws?token=${token}`);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === 'new_message' && msg.data.conversation_id === id) {
-          setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some((m) => m.id === msg.data.id)) return prev;
-            return [...prev, msg.data];
-          });
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ event: 'subscribe', conversation_id: id }));
-    };
-
-    ws.onclose = () => {
-      // Reconnect after delay
-      setTimeout(connectWebSocket, 3000);
-    };
-  }, [id]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

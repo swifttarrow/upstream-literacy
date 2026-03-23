@@ -2,11 +2,12 @@
 
 ## 1. Overview
 
-Build an internal moderator-facing data ingestion console that allows moderators to upload NCES district data, automatically ingest all districts from the uploaded file, and edit district data when needed. The system provides a small upload UI; after upload, the system ingests all district records. Moderators do not manually ingest individual districts—they only edit data when they want to correct or enrich it.
+Build an internal moderator-facing data ingestion console that allows moderators to upload required NCES files, automatically ingest all districts from the uploaded files, and edit district data when needed. The system provides a small upload UI; after upload, the system ingests all district records. Moderators do not manually ingest individual districts—they only edit data when they want to correct or enrich it.
 
 The ingestion experience should be transparent and operationally safe:
-- moderators upload **both** the NCES CCD district file and the EDGE Public LEA Geocode file via a simple UI
+- moderators upload all required NCES files (CCD district, EDGE geocode, district enrollment, school membership) via a simple UI
 - the system automatically ingests all districts from the CCD file and enriches them with coordinates from the EDGE file
+- the system uses required enrollment/membership files to compute district-level enrollment, EL %, and school lunch metrics
 - moderators can browse districts and filter by NCES year when multiple years have been uploaded
 - moderators can edit district data when they want to correct or enrich it
 - moderators can identify districts that have missing data
@@ -28,7 +29,7 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 ## 3. Goals
 
-- Allow moderators to upload NCES CCD district data (CSV) through a simple UI
+- Allow moderators to upload required NCES source files (CSV) through a simple UI
 - Automatically ingest all districts from the uploaded file
 - Allow moderators to browse ingested districts and select/filter by NCES year when multiple years have been uploaded
 - Allow moderators to edit district data when they want to correct or enrich it
@@ -41,7 +42,7 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 - Real-time sync with NCES (upload is manual/on-demand)
 - Public user-facing editing of district records
-- Bulk ingestion from arbitrary third-party CSVs (NCES CCD format only)
+- Bulk ingestion from arbitrary third-party CSVs (only required NCES formats are supported)
 - AI-assisted data cleansing
 - Complex merge/deduplication across multiple external sources
 
@@ -53,14 +54,14 @@ An internal ingestion UI is needed so moderators can manage district data with c
 - Moderator / internal operations user
 
 ### Secondary User
-- Admin (may have broader permissions than moderators)
+- Admin (same permissions as moderator in MVP)
 
 ---
 
 ## 6. Key User Stories
 
 ### Moderator
-- As a moderator, I want to upload the latest NCES CCD and EDGE geocode files so I can keep district data current with coordinates.
+- As a moderator, I want to upload the latest required NCES files (CCD district, EDGE geocode, district enrollment, school membership) so I can keep district data current with complete metrics.
 - As a moderator, I want the system to automatically ingest all districts from my upload so I do not need to select each one.
 - As a moderator, I want to select a given NCES year when I've uploaded data across multiple years so I can view the right dataset.
 - As a moderator, I want to browse ingested districts and filter by state or search so I can find specific records.
@@ -69,7 +70,7 @@ An internal ingestion UI is needed so moderators can manage district data with c
 - As a moderator, I want an audit trail of upload and edit actions so changes are accountable.
 
 ### Admin
-- As an admin, I want to review data quality outcomes at scale.
+- As an admin, I use the same ingestion console capabilities as moderators in MVP.
 
 ---
 
@@ -77,8 +78,8 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 ### In Scope
 - Internal moderator UI for district data management
-- Dual file upload: NCES CCD district file (CSV) + EDGE Public LEA Geocode file (CSV from ZIP)
-- Automatic ingestion of all districts from CCD file, joined with coordinates from EDGE file by LEAID
+- Four-file upload: NCES CCD district file (CSV) + EDGE Public LEA Geocode file (CSV) + CCD LEA enrollment file (CSV) + CCD school membership file (CSV)
+- Automatic ingestion of all districts from CCD file, joined with EDGE coordinates by LEAID and enriched using district/school membership datasets
 - District list/dashboard with filters (search, state, NCES year)
 - NCES year selector for when data has been uploaded across multiple years
 - Post-ingestion editing (moderators edit only when they want)
@@ -96,18 +97,26 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 ## 8. Source Data Assumptions
 
-The ingestion workflow requires **two files** uploaded together:
+The ingestion workflow requires **four files** uploaded together:
 
 1. **NCES CCD district file** — administrative data (name, state, NCES id, district metadata)
 2. **NCES EDGE Public LEA Geocode file** — latitude/longitude coordinates and locale
+3. **NCES CCD LEA enrollment file** — district-level enrollment used for district size/enrollment
+4. **NCES CCD school membership file** — school-level metrics aggregated to district-level EL % and school lunch metrics
 
-Moderators upload both files via the UI. The system joins them by LEAID (NCES district identifier) during ingestion.
+Moderators upload all four files via the UI. The system joins and aggregates them by LEAID (NCES district identifier) during ingestion.
 
 ### 8.1 NCES CCD district file
 NCES provides CCD district data in CSV format. The system shall accept the standard CCD LEA directory file structure. Download from: [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select the LEA (Local Education Agency) level and the appropriate school year. The upload UI will link to this page.
 
 ### 8.2 NCES EDGE Public LEA Geocode file
 NCES EDGE provides district-level latitude/longitude coordinates. Download from: [EDGE School Geocodes & Geoassignments](https://nces.ed.gov/programs/edge/geographic/schoollocations) — select "Public School District File". The ZIP contains a CSV; the system shall accept the extracted CSV. Select the school year that matches the CCD file.
+
+### 8.3 NCES CCD LEA enrollment file
+NCES provides LEA enrollment/membership data for district-level enrollment metrics. Download from: [CCD LEA Universe](https://nces.ed.gov/ccd/pubagency.asp) and select the matching school year.
+
+### 8.4 NCES CCD school membership file
+NCES provides school-level membership metrics used for aggregated district-level EL % and school lunch metrics. Download from: [CCD Public School Universe](https://www.nces.ed.gov/ccd/psu_rev.asp) and select the matching school year.
 
 ### Example data fields expected from source or normalization layer
 - District name
@@ -144,20 +153,24 @@ If some fields are not available directly from NCES, the system may store them a
 
 ## 10.1 NCES Data Upload UI
 
-The system shall provide an upload UI that requires **both** files.
+The system shall provide an upload UI that requires **all four** files.
 
 The upload UI shall:
-- accept **two** files: (1) CCD district CSV, (2) EDGE Public LEA Geocode CSV (extracted from ZIP)
-- require both files before allowing upload; clearly label each (e.g., "CCD District File", "EDGE Geocode File")
-- validate file format and structure for both (expected columns, encoding)
+- accept **four** files: (1) CCD district CSV, (2) EDGE Public LEA Geocode CSV (extracted from ZIP), (3) CCD LEA enrollment CSV, (4) CCD school membership CSV
+- require all four files before allowing upload; clearly label each
+- validate file format and structure for all required files (expected columns, encoding)
 - show upload progress and file sizes
-- link to download pages for both sources:
+- link to download pages for all required sources:
   - [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — LEA level
   - [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — Public School District File
+  - [CCD LEA Universe](https://nces.ed.gov/ccd/pubagency.asp)
+  - [CCD Public School Universe](https://www.nces.ed.gov/ccd/psu_rev.asp)
 
-When both valid files are uploaded, the system shall:
-- parse both CSVs
+When all four valid files are uploaded, the system shall:
+- parse all four CSVs
 - join CCD and EDGE data by LEAID
+- apply district enrollment metrics from LEA enrollment file
+- aggregate school membership metrics to district-level values by LEAID
 - automatically ingest all district records with coordinates from EDGE where matched
 - create an ingestion job record for the upload
 - surface parse/validation errors if either file format is unexpected
@@ -364,7 +377,7 @@ Possible use cases:
 - normalization rules were updated
 
 The system shall:
-- accept a new dual upload (CCD + EDGE) at any time
+- accept a new four-file upload at any time
 - merge or overwrite per configurable policy (e.g., overwrite by NCES id)
 - warn before overwriting districts that have moderator overrides
 - preserve historical ingestion/upload records
@@ -377,8 +390,8 @@ The system shall:
 Primary screen for moderator operations.
 
 ### Key UI components
-- upload area: two required file inputs (CCD district CSV, EDGE geocode CSV)
-- links to CCD and EDGE download pages
+- upload area: four required file inputs (CCD district CSV, EDGE geocode CSV, district enrollment CSV, school membership CSV)
+- links to NCES download pages for all required files
 - NCES year selector (when multiple years have been uploaded)
 - top summary cards
   - Total Districts (for selected year)
@@ -464,15 +477,13 @@ The system should classify fields into:
 
 ### Moderator
 - view dashboard
-- upload NCES CCD and EDGE geocode data (both required)
+- upload all required NCES files (CCD district, EDGE geocode, district enrollment, school membership)
 - view district list and select NCES year
 - edit district data
 - view districts with missing data
 
 ### Admin
-- all moderator permissions
-- configure validation rules
-- view all audit logs
+- same permissions as moderator in MVP
 
 ---
 
@@ -604,8 +615,8 @@ For each ingested district, the system should support:
 
 ## 20. Recommended MVP Decisions
 
-- Use **dual file upload** (CCD district CSV + EDGE geocode CSV) as the district data input; no pre-seeded district list
-- Accept standard CCD LEA directory format and EDGE Public LEA Geocode format; validate and parse both; join by LEAID
+- Use **four-file upload** (CCD district CSV + EDGE geocode CSV + district enrollment CSV + school membership CSV) as the district data input; no pre-seeded district list
+- Accept required NCES formats, validate and parse all files, join/aggregate by LEAID
 - Allow:
   - upload NCES file → automatic ingestion of all districts
   - browse districts and select NCES year when multiple years have been uploaded
@@ -620,7 +631,9 @@ For each ingested district, the system should support:
 
 | File | Purpose | Download |
 |------|---------|----------|
-| **CCD LEA directory** | District names, state, LEAID, enrollment, grade bands, and district metadata | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year; download CSV |
+| **CCD LEA directory** | District names, state, LEAID, district metadata | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year; download CSV |
 | **EDGE Public LEA Geocode** | Latitude, longitude, locale for each district (LEAID) | [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — "Public School District File"; extract CSV from ZIP |
+| **CCD LEA enrollment** | District-level enrollment/membership values (LEAID) | [CCD LEA Universe](https://nces.ed.gov/ccd/pubagency.asp) — select school year; download CSV |
+| **CCD school membership** | School-level membership metrics aggregated to district-level EL % and school lunch metrics | [CCD Public School Universe](https://www.nces.ed.gov/ccd/psu_rev.asp) — select school year; download CSV |
 
-**Important:** Select matching school years for both files (e.g., 2024–25 for both). The EDGE file URL pattern by year: `https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICLEA_XXXX.zip` where XXXX = 2425 (2024–25), 2324 (2023–24), etc.
+**Important:** Select matching school years for all required files (for example, 2024-25 for CCD, EDGE, district enrollment, and school membership). The EDGE file URL pattern by year: `https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICLEA_XXXX.zip` where XXXX = 2425 (2024-25), 2324 (2023-24), etc.

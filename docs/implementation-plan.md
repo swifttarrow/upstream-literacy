@@ -151,7 +151,7 @@ Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md
 
 | Area | Changes |
 |------|---------|
-| **NCES upload** | Upload UI for **two required files**: CCD district CSV + EDGE Public LEA Geocode CSV; parse and validate both; join by LEAID; create ingestion job; associate with NCES year |
+| **NCES upload** | Upload UI for **four required files**: CCD district CSV + EDGE Public LEA Geocode CSV + district enrollment CSV + school membership CSV; parse and validate all files; join/aggregate by LEAID; create ingestion job; associate with NCES year |
 | **District candidates** | Populate `district_candidates` from CCD file joined with EDGE file; store latitude, longitude from EDGE (LAT, LON columns); no pre-seeded list; status per record; store `nces_year` |
 | **Attribute definitions** | Seed `district_attribute_definitions` (type, enrollment, state, grade bands); per db-schema.md MVP set |
 | **Ingestion** | Job model: parse uploaded CSV → normalize each row → insert `district_ingestion_events`; merge into `district_effective_attribute_values`; async (pg-boss) for large uploads |
@@ -160,7 +160,7 @@ Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md
 | **Ingestion Console API** | Dashboard summary; upload endpoint; district list (filters: state, NCES year, missing-data, search); job progress |
 | **Admin overrides** | `PATCH /admin/ingestion/districts/:id`; insert/update `district_admin_overrides`; recompute effective values; revert to source |
 | **Errors & missing data** | Capture parse/ingestion errors (file parse, DB write); flag districts with missing data; display in UI |
-| **Moderator UI** | Upload area (two file inputs: CCD + EDGE); links to both download pages; dashboard (summary cards, NCES year selector, district table with missing-data flag, filters); district detail (view & edit); job progress view |
+| **Moderator UI** | Upload area (four file inputs: CCD + EDGE + district enrollment + school membership); links to download pages; dashboard (summary cards, NCES year selector, district table with missing-data flag, filters); district detail (view & edit); job progress view |
 | **Audit** | Log: file uploaded, ingestion started/completed, district edited, override reverted |
 | **Display** | District endpoints surface `provenance`, `has_missing_data`, `nces_year`, `last_ingestion_event_id`, `last_override_id` |
 | **Demo/seed** | Optional seed script for demo districts and users (`is_demo = true`) |
@@ -177,7 +177,7 @@ Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md
 
 #### Manual Verification
 - [ ] Moderator sees upload UI and dashboard with district list, NCES year selector (when multiple years), filters
-- [ ] Moderator can upload both CCD and EDGE files; all districts auto-ingested with coordinates; progress visible
+- [ ] Moderator can upload all four required files; all districts auto-ingested with coordinates and membership-derived metrics; progress visible
 - [ ] Districts show missing-data flag and ingested attributes with provenance
 - [ ] Moderator can select NCES year to view districts from that year
 - [ ] Moderator can edit district; override visible; revert to source works
@@ -452,7 +452,7 @@ Add latitude, longitude, geocoded_at to district_candidates. Coordinates populat
 | Area | Changes |
 |------|---------|
 | **Schema** | `schema/12_district_candidates_geocode.sql`: latitude, longitude, geocoded_at columns (already exists) |
-| **Ingestion** | When parsing dual upload: parse CCD and EDGE; build LEAID→(LAT, LON) map from EDGE; when creating district_candidates from CCD, look up coordinates by LEAID; set geocoded_at when coordinates come from EDGE |
+| **Ingestion** | During required ingestion upload processing, parse CCD and EDGE for geocoding; build LEAID→(LAT, LON) map from EDGE; when creating district_candidates from CCD, look up coordinates by LEAID; set geocoded_at when coordinates come from EDGE |
 | **Fallback script** | Optional `geocode-district-candidates.ts`: fetch candidates with `latitude IS NULL`; call Nominatim for name+state; 1 req/sec; update row. Use only for districts not in EDGE or with missing EDGE coords |
 | **Package.json** | `"geocode:district-candidates"` script (fallback only) |
 
@@ -501,7 +501,7 @@ Legend, loading states, error handling, empty state, documentation.
 | **Error handling** | API failure shows message; retry or link to docs |
 | **Docs** | Dual upload instructions; download links for CCD and EDGE; when to run fallback geocoding script |
 
-**Success:** Legend matches dashboard badge colors; empty/error states handled; dual upload and fallback script documented.
+**Success:** Legend matches dashboard badge colors; empty/error states handled; required multi-file upload and fallback script documented.
 
 ---
 

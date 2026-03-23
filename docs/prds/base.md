@@ -117,7 +117,8 @@ This platform enables:
 
 * User registration and login
 * Role-based access (member, moderator, admin)
-* No admin approval required for membership (users are approved on registration)
+* Users are auto-approved on registration (no separate approval workflow in MVP)
+* Moderator and admin are treated as equivalent permission tiers in MVP
 
 ### 8.2 User Profiles
 

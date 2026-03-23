@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
-import { isAuthenticated } from '@/lib/auth';
+import { isAuthenticated, setUser } from '@/lib/auth';
 
 interface District {
   id: string;
@@ -78,6 +78,11 @@ export default function ProfileSetupPage() {
         district_id: String(user.district_id || ''),
         problem_ids: problemIds,
       });
+      const districtName = String(user.district_name || '');
+      const districtState = String(user.district_state_region || '');
+      setDistrictSearch(
+        districtName ? `${districtName}${districtState ? ` (${districtState})` : ''}` : ''
+      );
 
       setProblems(problemsRes.statements);
       setLoading(false);
@@ -116,12 +121,18 @@ export default function ProfileSetupPage() {
       setShowRecommendations(false);
       return;
     }
+    // When a district is already selected, keep dropdown closed unless user edits/clears selection.
+    if (formData.district_id) {
+      setShowRecommendations(false);
+      setDistricts([]);
+      return;
+    }
     const t = setTimeout(() => {
       loadDistricts(districtSearch);
       setShowRecommendations(true);
     }, 300);
     return () => clearTimeout(t);
-  }, [districtSearch, loadDistricts]);
+  }, [districtSearch, loadDistricts, formData.district_id]);
 
   // Close recommendations when clicking outside
   useEffect(() => {
@@ -262,7 +273,7 @@ export default function ProfileSetupPage() {
 
     const [primaryId, ...secondaryIds] = formData.problem_ids;
     try {
-      await api.patch('/users/me', {
+      const data = await api.patch<{ user: Record<string, unknown> }>('/users/me', {
         full_name: formData.full_name || undefined,
         professional_role: formData.professional_role || undefined,
         bio: formData.bio || undefined,
@@ -270,6 +281,8 @@ export default function ProfileSetupPage() {
         primary_problem_id: primaryId,
         secondary_problem_ids: secondaryIds,
       });
+      // Keep local auth cache in sync so navbar gating reflects completion immediately.
+      setUser(data.user);
 
       setSuccess('Profile saved successfully!');
       setTimeout(() => router.push('/discover'), 1000);
@@ -354,8 +367,19 @@ export default function ProfileSetupPage() {
                 <input
                   type="text"
                   value={districtSearch}
-                  onChange={(e) => setDistrictSearch(e.target.value)}
-                  onFocus={() => districtSearch && setShowRecommendations(true)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setDistrictSearch(next);
+                    // If user edits free text, require explicit re-selection from results.
+                    if (formData.district_id) {
+                      setFormData((p) => ({ ...p, district_id: '' }));
+                    }
+                  }}
+                  onFocus={() => {
+                    if (!formData.district_id && districtSearch) {
+                      setShowRecommendations(true);
+                    }
+                  }}
                   className="input-field flex-1"
                   placeholder="Search districts..."
                   autoComplete="off"

@@ -14,7 +14,7 @@ Ingest public district data into `district_ingestion_events`, compute `district_
 
 | Area | Changes |
 |------|---------|
-| **Attribute definitions** | Seed `district_attribute_definitions` (per db-schema.md MVP set: type, enrollment, state, FRL, EL, grade bands) |
+| **Attribute definitions** | Seed `district_attribute_definitions` (per db-schema.md MVP set: type, enrollment, state, grade bands) |
 | **Ingestion** | Job/script: parse source → normalize → insert `district_ingestion_events`; merge into `district_effective_attribute_values` |
 | **Admin overrides** | `POST/PATCH /admin/districts/:id/overrides`; insert/update `district_admin_overrides`; recompute effective values |
 | **Display** | Existing district endpoints surface `provenance`, `last_ingestion_event_id`, `last_override_id` where relevant |

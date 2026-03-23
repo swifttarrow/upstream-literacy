@@ -153,7 +153,7 @@ Implement the full [district-data-ingestion PRD](prds/district-data-ingestion.md
 |------|---------|
 | **NCES upload** | Upload UI for **two required files**: CCD district CSV + EDGE Public LEA Geocode CSV; parse and validate both; join by LEAID; create ingestion job; associate with NCES year |
 | **District candidates** | Populate `district_candidates` from CCD file joined with EDGE file; store latitude, longitude from EDGE (LAT, LON columns); no pre-seeded list; status per record; store `nces_year` |
-| **Attribute definitions** | Seed `district_attribute_definitions` (type, enrollment, FRL, EL, grade bands); per db-schema.md MVP set |
+| **Attribute definitions** | Seed `district_attribute_definitions` (type, enrollment, state, grade bands); per db-schema.md MVP set |
 | **Ingestion** | Job model: parse uploaded CSV → normalize each row → insert `district_ingestion_events`; merge into `district_effective_attribute_values`; async (pg-boss) for large uploads |
 | **Missing data flagging** | Flag districts with missing required/recommended fields (`has_missing_data`); display in list and detail |
 | **NCES year selection** | NCES year selector on dashboard and district list when multiple years have been uploaded; scope district count and list to selected year |

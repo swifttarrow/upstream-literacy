@@ -7,7 +7,7 @@ Extend or implement API for moderators to edit district data after ingestion, wi
 ## Deliverables
 
 - [x] `PATCH /admin/districts/:id` or `POST /admin/districts/:id/overrides` (may extend m3 admin overrides)
-- [x] Editable fields: district_size_normalized, enrollment_bucket, frl_bucket, el_bucket, grade_bands, display_name, notes
+- [x] Editable fields: district_size_normalized, enrollment_bucket, grade_bands, display_name, notes
 - [x] Preserve: original source values, edit timestamp, editor identity, reason (optional)
 - [x] Validation on save; return validation errors
 - [x] Revert endpoint: remove override for field, restore to source-backed value

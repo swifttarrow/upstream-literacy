@@ -98,7 +98,7 @@ An internal ingestion UI is needed so moderators can manage district data with c
 
 The ingestion workflow requires **two files** uploaded together:
 
-1. **NCES CCD district file** — administrative data (name, enrollment, FRL, EL, etc.)
+1. **NCES CCD district file** — administrative data (name, state, NCES id, district metadata)
 2. **NCES EDGE Public LEA Geocode file** — latitude/longitude coordinates and locale
 
 Moderators upload both files via the UI. The system joins them by LEAID (NCES district identifier) during ingestion.
@@ -117,10 +117,6 @@ NCES EDGE provides district-level latitude/longitude coordinates. Download from:
 - District size (enrollment-based: Small &lt;2,500, Medium 2,500–10K, Large 10K–25K, XL 25K+; unknown when enrollment is missing)
 - Enrollment
 - Enrollment bucket
-- Free/reduced lunch indicator or proxy
-- FRL bucket
-- English learner / multilingual learner indicator or proxy
-- EL bucket
 - Grade bands served
 - Source name
 - Source record URL or identifier
@@ -312,8 +308,6 @@ The system shall allow moderators to edit district data after ingestion.
 Editable fields should include:
 - normalized district type
 - enrollment bucket
-- FRL bucket
-- EL bucket
 - grade bands
 - display name
 - notes
@@ -456,8 +450,6 @@ The system should classify fields into:
 - at least one problem-independent district context field
 
 ### Optional but recommended
-- FRL bucket
-- EL bucket
 - grade bands
 - source last updated
 
@@ -566,10 +558,6 @@ For each ingested district, the system should support:
 - `district_size_normalized`
 - `enrollment_raw`
 - `enrollment_bucket`
-- `frl_raw`
-- `frl_bucket`
-- `el_raw`
-- `el_bucket`
 - `grade_bands_raw`
 - `grade_bands_normalized`
 - `source_name`
@@ -632,7 +620,7 @@ For each ingested district, the system should support:
 
 | File | Purpose | Download |
 |------|---------|----------|
-| **CCD LEA directory** | District names, state, LEAID, enrollment, FRL, EL, grade bands, etc. | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year; download CSV |
+| **CCD LEA directory** | District names, state, LEAID, enrollment, grade bands, and district metadata | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year; download CSV |
 | **EDGE Public LEA Geocode** | Latitude, longitude, locale for each district (LEAID) | [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — "Public School District File"; extract CSV from ZIP |
 
 **Important:** Select matching school years for both files (e.g., 2024–25 for both). The EDGE file URL pattern by year: `https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICLEA_XXXX.zip` where XXXX = 2425 (2024–25), 2324 (2023–24), etc.

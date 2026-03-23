@@ -56,7 +56,7 @@ Some districts may not be found by Nominatim (unusual names, no OSM data). These
 
 | File | Purpose | Link |
 |------|---------|------|
-| **CCD LEA directory** | District names, state, LEAID, enrollment, FRL, EL, etc. | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year |
+| **CCD LEA directory** | District names, state, LEAID, enrollment, and district metadata | [CCD Data Files](https://nces.ed.gov/ccd/files.asp) — select LEA level and school year |
 | **EDGE Public LEA Geocode** | Latitude, longitude, LOCALE for each district | [EDGE School Geocodes](https://nces.ed.gov/programs/edge/geographic/schoollocations) — "Public School District File" |
 
 **Note:** Select matching school years for both files (e.g., 2024–25 for both). EDGE direct download pattern: `https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICLEA_XXXX.zip` where XXXX = 2425 (2024–25), 2324 (2023–24), etc.

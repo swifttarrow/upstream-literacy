@@ -9,7 +9,7 @@ Build the district edit UI with source (read-only), editable normalized values, 
 - [x] Route: `/admin/ingestion/districts/:id/edit` or `/admin/districts/:id/edit`
 - [x] Header: district name, state, NCES id, NCES year (when multi-year data), missing data indicator (if applicable)
 - [x] Source values section (read-only)
-- [x] Editable normalized values: district type, enrollment bucket, FRL bucket, EL bucket, grade bands, display name, notes
+- [x] Editable normalized values: district type, enrollment bucket, grade bands, display name, notes
 - [x] Missing fields section: field-level missing value indicators for districts with missing data
 - [x] Override reason field (optional)
 - [x] Validation messages on save

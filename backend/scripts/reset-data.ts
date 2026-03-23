@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { Pool, PoolClient } from 'pg';
 import * as dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
@@ -53,6 +54,13 @@ type SeededUser = {
   fullName: string;
   platformRole: 'admin' | 'member';
 };
+
+interface CandidateRecord {
+  nces_district_id: string;
+  name: string;
+  state: string;
+  district_size: string;
+}
 
 function quoteIdent(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
@@ -115,6 +123,38 @@ async function seedProblemTaxonomy(client: PoolClient): Promise<string[]> {
   return problemIds;
 }
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+async function seedDistricts(client: PoolClient): Promise<string[]> {
+  const dataPath = path.resolve(__dirname, '../src/data/district-candidates.json');
+  const candidates: CandidateRecord[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+  const districtIds: string[] = [];
+
+  for (const candidate of candidates) {
+    const slug = slugify(candidate.name);
+    const result = await client.query<{ id: string }>(
+      `INSERT INTO districts (name, slug, country_code, state_region, external_ref)
+       VALUES ($1, $2, 'US', $3, $4)
+       ON CONFLICT (slug) DO UPDATE
+         SET name = EXCLUDED.name,
+             state_region = EXCLUDED.state_region,
+             external_ref = EXCLUDED.external_ref,
+             updated_at = now()
+       RETURNING id`,
+      [candidate.name, slug, candidate.state, `NCES-${candidate.nces_district_id}`]
+    );
+    districtIds.push(result.rows[0].id);
+  }
+
+  console.log(`Seeded ${districtIds.length} districts`);
+  return districtIds;
+}
+
 async function seedAdminUser(client: PoolClient): Promise<SeededUser> {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const result = await client.query<{ id: string }>(
@@ -161,7 +201,11 @@ function buildMockUser(index: number) {
   };
 }
 
-async function seedMockUsers(client: PoolClient, problemIds: string[]): Promise<SeededUser[]> {
+async function seedMockUsers(
+  client: PoolClient,
+  problemIds: string[],
+  districtIds: string[]
+): Promise<SeededUser[]> {
   if (problemIds.length === 0) {
     throw new Error('No problem statements available for mock-user seeding');
   }
@@ -171,6 +215,9 @@ async function seedMockUsers(client: PoolClient, problemIds: string[]): Promise<
 
   for (let i = 0; i < MOCK_USER_COUNT; i++) {
     const user = buildMockUser(i);
+    const districtId =
+      districtIds.length > 0 ? districtIds[Math.floor(Math.random() * districtIds.length)] : null;
+    const profileCompletedAt = districtId ? new Date() : null;
     const userResult = await client.query<{ id: string }>(
       `INSERT INTO users (
         email,
@@ -178,23 +225,25 @@ async function seedMockUsers(client: PoolClient, problemIds: string[]): Promise<
         full_name,
         professional_role,
         bio,
+        district_id,
         platform_role,
         membership_status,
         is_demo_profile,
         profile_completed_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'member', 'approved', false, now())
+      VALUES ($1, $2, $3, $4, $5, $6, 'member', 'approved', false, $7)
       ON CONFLICT (email) DO UPDATE
         SET password_hash = EXCLUDED.password_hash,
             full_name = EXCLUDED.full_name,
             professional_role = EXCLUDED.professional_role,
             bio = EXCLUDED.bio,
+            district_id = COALESCE(EXCLUDED.district_id, users.district_id),
             platform_role = 'member',
             membership_status = 'approved',
             is_demo_profile = false,
-            profile_completed_at = COALESCE(users.profile_completed_at, now())
+            profile_completed_at = COALESCE(users.profile_completed_at, EXCLUDED.profile_completed_at)
       RETURNING id`,
-      [user.email, passwordHash, user.fullName, user.professionalRole, user.bio]
+      [user.email, passwordHash, user.fullName, user.professionalRole, user.bio, districtId, profileCompletedAt]
     );
 
     const userId = userResult.rows[0].id;
@@ -251,8 +300,9 @@ async function resetData() {
 
     await truncateAllTables(client);
     const problemIds = await seedProblemTaxonomy(client);
+    const districtIds = await seedDistricts(client);
     const adminUser = await seedAdminUser(client);
-    const mockUsers = await seedMockUsers(client, problemIds);
+    const mockUsers = await seedMockUsers(client, problemIds, districtIds);
     const seededUsers = [adminUser, ...mockUsers];
 
     await client.query('COMMIT');

@@ -16,8 +16,6 @@ interface Candidate {
   name: string;
   state: string;
   district_size: string;
-  frl_pct: number | null;
-  el_pct: number | null;
   locale_type?: string | null;
   locale_subtype?: string | null;
   status: string;
@@ -116,7 +114,6 @@ function IngestionDashboard() {
   const [ccdFile, setCcdFile] = useState<File | null>(null);
   const [edgeFile, setEdgeFile] = useState<File | null>(null);
   const [districtEnrollmentFile, setDistrictEnrollmentFile] = useState<File | null>(null);
-  const [schoolMembershipFile, setSchoolMembershipFile] = useState<File | null>(null);
   const [ncesYear, setNcesYear] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -218,7 +215,7 @@ function IngestionDashboard() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ccdFile || !edgeFile || !districtEnrollmentFile || !schoolMembershipFile) return;
+    if (!ccdFile || !edgeFile || !districtEnrollmentFile) return;
     setUploadLoading(true);
     setUploadError('');
     setUploadSuccess('');
@@ -228,13 +225,12 @@ function IngestionDashboard() {
     const base = apiBase.replace(/\/?$/, '');
     try {
       const filesToUpload: {
-        purpose: 'ccd' | 'edge' | 'district_enrollment' | 'school_membership';
+        purpose: 'ccd' | 'edge' | 'district_enrollment';
         file: File;
       }[] = [
         { purpose: 'ccd', file: ccdFile },
         { purpose: 'edge', file: edgeFile },
         { purpose: 'district_enrollment', file: districtEnrollmentFile },
-        { purpose: 'school_membership', file: schoolMembershipFile },
       ];
       const objectKeys: Record<string, string> = {};
       const totalFiles = filesToUpload.length;
@@ -267,7 +263,6 @@ function IngestionDashboard() {
         if (purpose === 'ccd') objectKeys.ccd_object_key = urlData.objectKey;
         else if (purpose === 'edge') objectKeys.edge_object_key = urlData.objectKey;
         else if (purpose === 'district_enrollment') objectKeys.district_enrollment_object_key = urlData.objectKey;
-        else objectKeys.school_membership_object_key = urlData.objectKey;
       }
       setUploadProgress(90);
       const processRes = await fetch(`${base}/admin/ingestion/process-upload`, {
@@ -277,7 +272,6 @@ function IngestionDashboard() {
           ccd_object_key: objectKeys.ccd_object_key,
           edge_object_key: objectKeys.edge_object_key,
           district_enrollment_object_key: objectKeys.district_enrollment_object_key!,
-          school_membership_object_key: objectKeys.school_membership_object_key!,
           nces_year: ncesYear || undefined,
         }),
       });
@@ -289,8 +283,6 @@ function IngestionDashboard() {
       }
       const diag = data.coordinates_diagnostic;
       const enrDiag = data.enrollment_diagnostic;
-      const lunchDiag = data.school_lunch_diagnostic;
-      const elDiag = data.el_diagnostic;
       let msg = `Upload complete — ${data.total_count} districts queued (job ${data.job_id.slice(0, 8)}…)`;
       if (diag?.without_coordinates > 0) {
         msg += ` ${diag.with_coordinates} with coordinates, ${diag.without_coordinates} missing.`;
@@ -298,14 +290,10 @@ function IngestionDashboard() {
       if (enrDiag) {
         msg += ` ${enrDiag.with_enrollment} with enrollment${enrDiag.from_district_enrollment_file ? ' (from District Enrollment file)' : ''}.`;
       }
-      if (lunchDiag || elDiag) {
-        msg += ` ${lunchDiag?.with_frl_pct ?? 0} with lunch metric, ${elDiag?.with_el_pct ?? 0} with EL metric.`;
-      }
       setUploadSuccess(msg);
       setCcdFile(null);
       setEdgeFile(null);
       setDistrictEnrollmentFile(null);
-      setSchoolMembershipFile(null);
       router.push(`/admin/ingestion/jobs/${data.job_id}`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -404,7 +392,7 @@ function IngestionDashboard() {
                 </button>
               </div>
               <form onSubmit={handleUpload} className="p-6 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
                       <label className="text-sm font-medium text-gray-700">
@@ -431,6 +419,9 @@ function IngestionDashboard() {
                       onChange={(e) => setCcdFile(e.target.files?.[0] ?? null)}
                       className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 file:text-sm file:bg-white hover:file:bg-gray-50"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Required. Source-of-truth district file (LEAID, name, state).
+                    </p>
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
@@ -458,6 +449,9 @@ function IngestionDashboard() {
                       onChange={(e) => setEdgeFile(e.target.files?.[0] ?? null)}
                       className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 file:text-sm file:bg-white hover:file:bg-gray-50"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Required. Provides district coordinates and locale metadata.
+                    </p>
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
@@ -489,36 +483,6 @@ function IngestionDashboard() {
                       Required for district enrollment/size.
                     </p>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <label className="text-sm font-medium text-gray-700">
-                        School Membership File (CCD SCH 052)
-                      </label>
-                      <InfoTooltip
-                        content={
-                          <>
-                            School-level membership file (commonly named <code>ccd_sch_052_*.csv</code>) used to compute district-level EL% and school lunch metrics by LEAID aggregation.{' '}
-                            <a href="https://www.nces.ed.gov/ccd/psu_rev.asp" target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:underline">
-                              NCES Public School Universe files
-                            </a>
-                          </>
-                        }
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </InfoTooltip>
-                    </div>
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={(e) => setSchoolMembershipFile(e.target.files?.[0] ?? null)}
-                      className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 file:text-sm file:bg-white hover:file:bg-gray-50"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Required for EL% and school lunch metrics.
-                    </p>
-                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">NCES Year (optional)</label>
@@ -533,7 +497,7 @@ function IngestionDashboard() {
                 <div className="flex justify-end gap-2 pt-4">
                   <button
                     type="submit"
-                    disabled={!ccdFile || !edgeFile || !districtEnrollmentFile || !schoolMembershipFile || uploadLoading}
+                    disabled={!ccdFile || !edgeFile || !districtEnrollmentFile || uploadLoading}
                     className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                   >
                     {uploadLoading && (
@@ -874,8 +838,6 @@ function IngestionDashboard() {
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-20">State</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-24">Size</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-32">Locale</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-600 w-32">EL %</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-600 w-36">Free/Reduced Lunch %</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-28">Enrollment</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600 w-28">Status</th>
                   </tr>
@@ -909,12 +871,6 @@ function IngestionDashboard() {
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
                         {[candidate.locale_type, candidate.locale_subtype].filter(Boolean).join(' ') || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        {candidate.el_pct != null ? `${Number(candidate.el_pct).toFixed(1)}%` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        {candidate.frl_pct != null ? `${Number(candidate.frl_pct).toFixed(1)}%` : '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
                         {candidate.enrollment != null

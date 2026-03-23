@@ -16,6 +16,7 @@ interface Candidate {
   missing_data_indicator: boolean;
   last_refresh_at: string | null;
   district_id: string | null;
+  enrollment: number | null;
 }
 
 interface QualityAssessment {
@@ -227,6 +228,10 @@ export default function CandidatePreviewPage() {
               <div className="flex justify-between">
                 <dt className="text-gray-500">District Size</dt>
                 <dd className="text-gray-900">{candidate.district_size === 'xl' ? 'XL' : candidate.district_size.replace(/^./, (c) => c.toUpperCase())}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Enrollment</dt>
+                <dd className="text-gray-900">{candidate.enrollment != null ? candidate.enrollment.toLocaleString() : '—'}</dd>
               </div>
             </dl>
           </div>

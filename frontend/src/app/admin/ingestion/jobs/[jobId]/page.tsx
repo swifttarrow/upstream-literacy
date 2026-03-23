@@ -45,7 +45,7 @@ interface ExistingAttribute {
 interface RecordPreviewData {
   candidate: { name: string; state: string; district_size: string; nces_district_id: string; district_id: string | null };
   existing_attributes: ExistingAttribute[];
-  normalized: { name: string; state: string; district_size: string; nces_district_id: string };
+  normalized: { name: string; state: string; district_size: string; nces_district_id: string; enrollment: number | null };
 }
 
 const JOB_STATUS_COLORS: Record<string, string> = {
@@ -101,7 +101,7 @@ export default function JobDetailPage() {
       const data = await api.get<{
         candidate: { name: string; state: string; district_size: string; nces_district_id: string; district_id: string | null };
         existing_attributes: ExistingAttribute[];
-        normalized: { name: string; state: string; district_size: string; nces_district_id: string };
+        normalized: { name: string; state: string; district_size: string; nces_district_id: string; enrollment: number | null };
       }>(`/admin/ingestion/candidates/${record.candidate_id}/preview`);
       setExpandedPreview(data);
     } catch {
@@ -399,6 +399,8 @@ export default function JobDetailPage() {
                               <span>{expandedPreview.normalized.district_size}</span>
                               <span className="text-gray-500">NCES ID</span>
                               <span className="font-mono">{expandedPreview.normalized.nces_district_id}</span>
+                              <span className="text-gray-500">Enrollment</span>
+                              <span>{expandedPreview.normalized.enrollment != null ? expandedPreview.normalized.enrollment.toLocaleString() : '—'}</span>
                             </div>
                           </div>
                           {expandedPreview.existing_attributes.length > 0 && (

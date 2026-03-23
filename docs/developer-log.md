@@ -446,3 +446,12 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** PRD, implementation plan, and milestones (m11–m16) updated. New: upload endpoint, CCD CSV parse, auto-ingest all rows, per-district completeness scoring. Removed: 100-district seed list, preview-before-ingest flow, Ingest Selected / batch ingest selection.
 **Owner:** Developer
 
+### [2026-03-22] Removed FRL and EL percentage metrics from NCES ingestion
+
+**Context:** Recent NCES upload runs showed we do not currently have a reliable source mapping to populate district-level FRL and EL percentages with consistent quality.
+**Options considered:** (A) Keep FRL/EL fields populated from current files despite quality gaps vs (B) remove FRL/EL ingestion and UI display until a trustworthy source/method is established.
+**Decision:** Remove FRL and EL percentage extraction, ingestion writes, and admin-console display from the current NCES pipeline.
+**Rationale:** Showing low-confidence metrics creates false precision and can mislead matching or moderator decisions; it is safer to omit them than surface potentially incorrect values.
+**Impact:** Ingestion now focuses on high-confidence fields (district identity, state, enrollment, district size, locale, coordinates, NCES year). Existing FRL/EL columns remain in schema/history but are no longer populated by new uploads or shown in ingestion admin views.
+**Owner:** Developer
+

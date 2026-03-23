@@ -15,7 +15,8 @@
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:users": "tsx scripts/seed-users.ts",
     "seed:district-candidates": "tsx scripts/seed-district-candidates.ts",
-    "geocode:district-candidates": "tsx scripts/geocode-district-candidates.ts"
+    "geocode:district-candidates": "tsx scripts/geocode-district-candidates.ts",
+    "reset:data": "tsx scripts/reset-data.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1014.0",

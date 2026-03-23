@@ -16,7 +16,6 @@ import connectionsRoutes from './routes/connections.js';
 import conversationsRoutes from './routes/conversations.js';
 import moderationRoutes from './routes/moderation.js';
 import notificationsRoutes from './routes/notifications.js';
-import aiRoutes from './routes/ai.js';
 import ingestionRoutes from './routes/ingestion.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -56,7 +55,6 @@ export async function buildServer() {
   await fastify.register(conversationsRoutes, { prefix: '/api' });
   await fastify.register(moderationRoutes, { prefix: '/api' });
   await fastify.register(notificationsRoutes, { prefix: '/api' });
-  await fastify.register(aiRoutes, { prefix: '/api' });
   await fastify.register(ingestionRoutes, { prefix: '/api' });
 
   return fastify;

@@ -21,8 +21,24 @@ interface Participant {
   left_at: string | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
-const WS_BASE = API_BASE.replace(/^http/, 'ws');
+const API_BASE =
+  typeof window !== 'undefined'
+    ? process.env.NEXT_PUBLIC_API_URL || '/api'
+    : process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001/api';
+
+function getWsBase(): string {
+  const base = API_BASE.replace(/\/$/, '');
+  if (base.startsWith('/')) {
+    if (typeof window === 'undefined') {
+      return `ws://127.0.0.1:3001${base}`;
+    }
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}${base}`;
+  }
+  return base.replace(/^http/, 'ws');
+}
+
+const WS_BASE = getWsBase();
 
 export default function ConversationPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -34,8 +50,6 @@ export default function ConversationPage({ params }: { params: { id: string } })
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -135,23 +149,6 @@ export default function ConversationPage({ params }: { params: { id: string } })
     }
   };
 
-  const handleSummarize = async () => {
-    setAiLoading(true);
-    setAiResult('');
-    try {
-      const data = await api.post<{ summary: string }>(`/conversations/${id}/summarize`);
-      setAiResult(data.summary);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 429) {
-        setAiResult('Rate limit reached. Try again in an hour.');
-      } else {
-        setAiResult('Failed to generate summary.');
-      }
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const handleLeave = async () => {
     if (!confirm('Leave this conversation?')) return;
     try {
@@ -174,32 +171,11 @@ export default function ConversationPage({ params }: { params: { id: string } })
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSummarize}
-              disabled={aiLoading}
-              className="btn-secondary text-sm"
-            >
-              {aiLoading ? 'Summarizing...' : 'AI Summary'}
-            </button>
             <button onClick={handleLeave} className="text-sm text-red-600 hover:text-red-700">
               Leave
             </button>
           </div>
         </div>
-
-        {/* AI Result */}
-        {aiResult && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">AI Summary</h3>
-            <p className="text-sm text-blue-800">{aiResult}</p>
-            <button
-              onClick={() => setAiResult('')}
-              className="mt-2 text-xs text-blue-600 hover:text-blue-700"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {/* Messages */}
         {error && (

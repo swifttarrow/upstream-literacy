@@ -455,3 +455,12 @@ The entries below capture architecture and operating-model decisions for MVP.
 **Impact:** Ingestion now focuses on high-confidence fields (district identity, state, enrollment, district size, locale, coordinates, NCES year). Existing FRL/EL columns remain in schema/history but are no longer populated by new uploads or shown in ingestion admin views.
 **Owner:** Developer
 
+### [2026-03-22] Discovery scoring reworked to profile-based composite matching
+
+**Context:** Discovery was over-inclusive and returned nearly all users as matches because candidates were ranked but not gated by meaningful district + problem similarity thresholds.
+**Options considered:** (A) Keep broad ranking with weak/no-signal candidates vs (B) enforce district-outside-only matching, explicit district similarity scoring, and normalized problem overlap scoring with minimum thresholds.
+**Decision:** Implement a composite 100-point score split into district similarity (50 max) and problem similarity (50 max), exclude same-district users, and only return matches when district similarity > 0 and composite score > 50.
+**Rationale:** This aligns discovery intent with cross-district peer learning, improves relevance, and prevents low-signal "everyone matches" outcomes.
+**Impact:** District similarity now scores locale type (15), locale subtype (15), district size (10), and same state/region (10). Problem similarity no longer distinguishes primary vs secondary; overlap is normalized by how many statements the current user selected. Discover UI now removes manual filters and surfaces profile-derived matching context plus per-match composite scoring.
+**Owner:** Developer
+

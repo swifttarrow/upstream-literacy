@@ -5,15 +5,9 @@ import { authenticate } from '../middleware/authenticate.js';
 import { requireProfileCompleted } from '../middleware/requireProfileCompleted.js';
 
 const matchQuerySchema = z.object({
-  problemId: z.string().uuid().optional(),
-  districtId: z.string().uuid().optional(),
-  professionalRole: z.string().optional(),
-  stateRegion: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
-
-type MatchType = 'exact' | 'close';
 
 interface MatchResult {
   id: string;
@@ -27,10 +21,11 @@ interface MatchResult {
   membership_status: string;
   is_demo_profile: boolean;
   profile_completed_at: Date | null;
-  matchType: MatchType;
-  explanation: string;
   connectionStatus: 'none' | 'pending_sent' | 'pending_received' | 'connected';
-  matchScore: number;
+  explanation: string;
+  districtSimilarityScore: number;
+  problemSimilarityScore: number;
+  compositeScore: number;
 }
 
 export default async function discoveryRoutes(fastify: FastifyInstance) {
@@ -43,34 +38,33 @@ export default async function discoveryRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'validation_error', details: parsed.error.flatten() });
       }
 
-      const { problemId, districtId, professionalRole, stateRegion, page, limit } = parsed.data;
+      const { page, limit } = parsed.data;
       const currentUserId = request.jwtUser!.userId;
       const offset = (page - 1) * limit;
 
       // Get current user's profile for matching context
       const selfResult = await pool.query(
-        `SELECT u.id, u.district_id, u.professional_role, d.state_region
+        `SELECT u.id, u.district_id, u.professional_role, d.name AS district_name, d.state_region
          FROM users u
          LEFT JOIN districts d ON d.id = u.district_id
          WHERE u.id = $1`,
         [currentUserId]
       );
       const self = selfResult.rows[0];
-
-      // Get current user's primary problem
-      const selfPrimaryResult = await pool.query(
-        `SELECT problem_statement_id FROM user_problem_selections
-         WHERE user_id = $1 AND is_primary = true`,
-        [currentUserId]
-      );
-      const selfPrimaryProblemId = selfPrimaryResult.rows[0]?.problem_statement_id || null;
+      if (!self) {
+        return reply.status(404).send({ error: 'user_not_found' });
+      }
 
       // Get current user's all problem IDs
       const selfProblemsResult = await pool.query(
-        `SELECT problem_statement_id FROM user_problem_selections WHERE user_id = $1`,
+        `SELECT ups.problem_statement_id, ps.label
+         FROM user_problem_selections ups
+         JOIN problem_statements ps ON ps.id = ups.problem_statement_id
+         WHERE ups.user_id = $1`,
         [currentUserId]
       );
       const selfProblemIds = selfProblemsResult.rows.map((r) => r.problem_statement_id);
+      const selfProblemWeight = selfProblemIds.length > 0 ? 50 / selfProblemIds.length : 0;
 
       // Fetch candidate users: approved, non-suspended, profile completed, excluding self
       const candidatesResult = await pool.query(
@@ -108,6 +102,65 @@ export default async function discoveryRoutes(fastify: FastifyInstance) {
         }
       }
 
+      // Fetch district characteristics (locale + size) for self and all candidate districts.
+      const districtIds = Array.from(
+        new Set(
+          [self.district_id, ...candidates.map((c) => c.district_id)]
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+      const districtCharMap = new Map<string, { district_size: string | null; locale_type: string | null; locale_subtype: string | null }>();
+      if (districtIds.length > 0) {
+        const districtCharsResult = await pool.query(
+          `SELECT
+             dav.district_id,
+             MAX(CASE WHEN dad.key = 'district_size' THEN COALESCE(dav.value_text, dav.value_number::text) END) AS district_size,
+             MAX(CASE WHEN dad.key = 'locale_type' THEN COALESCE(dav.value_text, dav.value_number::text) END) AS locale_type,
+             MAX(CASE WHEN dad.key = 'locale_subtype' THEN COALESCE(dav.value_text, dav.value_number::text) END) AS locale_subtype
+           FROM district_effective_attribute_values dav
+           JOIN district_attribute_definitions dad ON dad.id = dav.definition_id
+           WHERE dav.district_id = ANY($1::uuid[])
+             AND dad.key IN ('district_size', 'locale_type', 'locale_subtype')
+           GROUP BY dav.district_id`,
+          [districtIds]
+        );
+        for (const row of districtCharsResult.rows) {
+          districtCharMap.set(row.district_id, {
+            district_size: row.district_size ?? null,
+            locale_type: row.locale_type ?? null,
+            locale_subtype: row.locale_subtype ?? null,
+          });
+        }
+
+        // Fallback to district_candidates (via districts.external_ref -> NCES ID) when effective attrs are missing.
+        const districtCandidateFallbackResult = await pool.query(
+          `SELECT
+             d.id AS district_id,
+             dc.district_size,
+             dc.locale_type,
+             dc.locale_subtype
+           FROM districts d
+           LEFT JOIN district_candidates dc
+             ON dc.nces_district_id = regexp_replace(COALESCE(d.external_ref, ''), '^NCES-', '')
+           WHERE d.id = ANY($1::uuid[])`,
+          [districtIds]
+        );
+        for (const row of districtCandidateFallbackResult.rows) {
+          const existing = districtCharMap.get(row.district_id) ?? {
+            district_size: null,
+            locale_type: null,
+            locale_subtype: null,
+          };
+          districtCharMap.set(row.district_id, {
+            district_size: existing.district_size ?? row.district_size ?? null,
+            locale_type: existing.locale_type ?? row.locale_type ?? null,
+            locale_subtype: existing.locale_subtype ?? row.locale_subtype ?? null,
+          });
+        }
+      }
+
+      const selfDistrictChars = self.district_id ? districtCharMap.get(self.district_id) : null;
+
       // Get connection status for all candidates
       let connectionMap: Map<string, string> = new Map();
       if (candidateIds.length > 0) {
@@ -138,101 +191,102 @@ export default async function discoveryRoutes(fastify: FastifyInstance) {
 
       for (const candidate of candidates) {
         const candidateProblems = candidateProblemMap.get(candidate.id) || [];
-        const candidatePrimaryProblemId = candidateProblems.find((p) => p.is_primary)?.problem_statement_id;
         const candidateProblemIds = candidateProblems.map((p) => p.problem_statement_id);
+        const candidateProblemSet = new Set(candidateProblemIds);
+        const candidateDistrictChars = candidate.district_id ? districtCharMap.get(candidate.district_id) : null;
 
-        let score = 0;
+        // Match users outside of their district only.
+        if (self.district_id && candidate.district_id === self.district_id) continue;
+
+        let districtSimilarityScore = 0;
+        let problemSimilarityScore = 0;
         const explanationParts: string[] = [];
 
-        // Apply filters
-        if (problemId) {
-          if (!candidateProblemIds.includes(problemId)) continue;
+        // District similarity (50 max): locale type 15 + locale subtype 15 + size 10 + same state 10.
+        if (
+          selfDistrictChars?.locale_type &&
+          candidateDistrictChars?.locale_type &&
+          selfDistrictChars.locale_type === candidateDistrictChars.locale_type
+        ) {
+          districtSimilarityScore += 15;
+          explanationParts.push('same locale type');
         }
-        if (districtId && candidate.district_id !== districtId) continue;
-        if (professionalRole && candidate.professional_role !== professionalRole) continue;
-        if (stateRegion && candidate.district_state_region !== stateRegion) continue;
-
-        // Scoring
-        // Primary problem match (highest weight)
-        if (selfPrimaryProblemId && candidatePrimaryProblemId === selfPrimaryProblemId) {
-          score += 100;
-          explanationParts.push('shares your primary challenge');
-        } else if (selfPrimaryProblemId && candidateProblemIds.includes(selfPrimaryProblemId)) {
-          score += 60;
-          explanationParts.push('working on your primary challenge area');
+        if (
+          selfDistrictChars?.locale_subtype &&
+          candidateDistrictChars?.locale_subtype &&
+          selfDistrictChars.locale_subtype === candidateDistrictChars.locale_subtype
+        ) {
+          districtSimilarityScore += 15;
+          explanationParts.push('same locale subtype');
         }
-
-        // Secondary problem overlap
-        const sharedSecondary = selfProblemIds.filter((id) =>
-          id !== selfPrimaryProblemId && candidateProblemIds.includes(id)
-        );
-        if (sharedSecondary.length > 0) {
-          score += sharedSecondary.length * 20;
-          explanationParts.push(`shares ${sharedSecondary.length} other challenge area(s)`);
+        if (
+          selfDistrictChars?.district_size &&
+          candidateDistrictChars?.district_size &&
+          selfDistrictChars.district_size === candidateDistrictChars.district_size
+        ) {
+          districtSimilarityScore += 10;
+          explanationParts.push('same district size');
         }
-
-        // Same district
-        if (self.district_id && candidate.district_id === self.district_id) {
-          score += 30;
-          explanationParts.push('same district');
-        }
-
-        // Same state
         if (self.state_region && candidate.district_state_region === self.state_region) {
-          score += 10;
+          districtSimilarityScore += 10;
           explanationParts.push('same state/region');
         }
 
-        // Same role
-        if (self.professional_role && candidate.professional_role === self.professional_role) {
-          score += 15;
-          explanationParts.push('same professional role');
+        // Problem similarity (50 max), normalized by how many statements the current user selected.
+        const sharedProblemCount = selfProblemIds.filter((id) => candidateProblemSet.has(id)).length;
+        if (sharedProblemCount > 0 && selfProblemWeight > 0) {
+          problemSimilarityScore = Math.min(50, sharedProblemCount * selfProblemWeight);
+          explanationParts.push(`${sharedProblemCount} shared challenge${sharedProblemCount === 1 ? '' : 's'}`);
         }
 
-        // Demo profiles get a small boost for cold start
-        if (candidate.is_demo_profile) {
-          score += 5;
-        }
+        const compositeScore = districtSimilarityScore + problemSimilarityScore;
 
-        const primaryMatches =
-          selfPrimaryProblemId && candidatePrimaryProblemId === selfPrimaryProblemId;
-        const matchType: MatchType = primaryMatches ? 'exact' : 'close';
-        const explanation =
-          explanationParts.length > 0
-            ? explanationParts.join(', ')
-            : 'may have relevant experience';
+        // Only return matches with non-zero district similarity and sufficient composite relevance.
+        if (districtSimilarityScore <= 0) continue;
+        if (compositeScore <= 30) continue;
+
+        const explanation = explanationParts.length > 0 ? explanationParts.join(', ') : 'profile-based similarity';
 
         const connStatus = connectionMap.get(candidate.id) || 'none';
 
         scored.push({
           ...candidate,
-          matchType,
-          explanation,
           connectionStatus: connStatus as MatchResult['connectionStatus'],
-          matchScore: score,
+          explanation,
+          districtSimilarityScore,
+          problemSimilarityScore: Number(problemSimilarityScore.toFixed(2)),
+          compositeScore: Number(compositeScore.toFixed(2)),
         });
       }
 
-      // Sort by score descending, then by name for determinism
+      // Sort by composite score descending, then by name for determinism.
       scored.sort((a, b) => {
-        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+        if (b.compositeScore !== a.compositeScore) return b.compositeScore - a.compositeScore;
         return a.full_name.localeCompare(b.full_name);
       });
 
-      // Cold-start: if no exact matches from real users, include demo profiles
-      const realExact = scored.filter((m) => m.matchType === 'exact' && !m.is_demo_profile);
       const total = scored.length;
       const paginated = scored.slice(offset, offset + limit);
-
-      // Remove matchScore from response
-      const matches = paginated.map(({ matchScore: _ms, ...rest }) => rest);
+      const matches = paginated;
 
       return reply.send({
         matches,
         meta: {
           total,
-          realExactCount: realExact.length,
-          coldStart: realExact.length === 0,
+          profile_context: {
+            district: {
+              id: self.district_id,
+              name: self.district_name ?? null,
+              state_region: self.state_region ?? null,
+              district_size: selfDistrictChars?.district_size ?? null,
+              locale_type: selfDistrictChars?.locale_type ?? null,
+              locale_subtype: selfDistrictChars?.locale_subtype ?? null,
+            },
+            selected_problem_statements: selfProblemsResult.rows.map((r) => ({
+              id: r.problem_statement_id,
+              label: r.label,
+            })),
+          },
         },
         pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       });

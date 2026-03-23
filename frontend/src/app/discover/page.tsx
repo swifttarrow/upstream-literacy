@@ -16,24 +16,33 @@ interface Match {
   district_name: string | null;
   district_state_region: string | null;
   is_demo_profile: boolean;
-  matchType: 'exact' | 'close';
   explanation: string;
   connectionStatus: 'none' | 'pending_sent' | 'pending_received' | 'connected';
+  districtSimilarityScore: number;
+  problemSimilarityScore: number;
+  compositeScore: number;
 }
 
 interface MatchResponse {
   matches: Match[];
-  meta: { total: number; coldStart: boolean };
+  meta: {
+    total: number;
+    profile_context: {
+      district: {
+        id: string | null;
+        name: string | null;
+        state_region: string | null;
+        district_size: string | null;
+        locale_type: string | null;
+        locale_subtype: string | null;
+      };
+      selected_problem_statements: { id: string; label: string }[];
+    };
+  };
   pagination: { page: number; total: number; pages: number };
 }
 
-interface ProblemStatement {
-  id: string;
-  label: string;
-  category_name: string;
-}
-
-type DiscoverCache = { matches: Match[]; meta: { total: number; coldStart: boolean }; totalPages: number };
+type DiscoverCache = { matches: Match[]; meta: MatchResponse['meta']; totalPages: number };
 
 export default function DiscoverPage() {
   const router = useRouter();
@@ -44,7 +53,7 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(() => !pageCache.has(CACHE_KEY));
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const [meta, setMeta] = useState<{ total: number; coldStart: boolean } | null>(() => {
+  const [meta, setMeta] = useState<MatchResponse['meta'] | null>(() => {
     const c = pageCache.get<DiscoverCache>(CACHE_KEY);
     return c?.meta ?? null;
   });
@@ -52,13 +61,6 @@ export default function DiscoverPage() {
   const [totalPages, setTotalPages] = useState(() => {
     const c = pageCache.get<DiscoverCache>(CACHE_KEY);
     return c?.totalPages ?? 1;
-  });
-  const [problems, setProblems] = useState<ProblemStatement[]>([]);
-
-  const [filters, setFilters] = useState({
-    problemId: '',
-    stateRegion: '',
-    professionalRole: '',
   });
 
   const [connectingIds, setConnectingIds] = useState<Set<string>>(new Set());
@@ -68,37 +70,24 @@ export default function DiscoverPage() {
       router.push('/login');
       return;
     }
-    loadProblems();
     loadMatches(1, true);
   }, [router]);
 
-  const loadProblems = async () => {
-    try {
-      const data = await api.get<{ statements: ProblemStatement[] }>('/problem-statements');
-      setProblems(data.statements);
-    } catch {
-      // ignore
-    }
-  };
-
-  const buildQuery = (p: number, f = filters) => {
+  const buildQuery = (p: number) => {
     const params = new URLSearchParams();
     params.set('page', String(p));
-    if (f.problemId) params.set('problemId', f.problemId);
-    if (f.stateRegion) params.set('stateRegion', f.stateRegion);
-    if (f.professionalRole) params.set('professionalRole', f.professionalRole);
     return params.toString();
   };
 
-  const loadMatches = async (p: number, reset = false, f = filters) => {
-    const isDefaultView = p === 1 && !f.problemId && !f.stateRegion && !f.professionalRole;
+  const loadMatches = async (p: number, reset = false) => {
+    const isDefaultView = p === 1;
     const hasCached = isDefaultView && pageCache.has(CACHE_KEY);
     if (reset && !hasCached) setLoading(true);
     else if (!reset) setLoadingMore(true);
     setError('');
 
     try {
-      const data = await api.get<MatchResponse>(`/discovery/matches?${buildQuery(p, f)}`);
+      const data = await api.get<MatchResponse>(`/discovery/matches?${buildQuery(p)}`);
       if (isDefaultView) {
         pageCache.set(CACHE_KEY, { matches: data.matches, meta: data.meta, totalPages: data.pagination.pages });
       }
@@ -116,12 +105,6 @@ export default function DiscoverPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
-
-  const handleFilterChange = (field: string, value: string) => {
-    const newFilters = { ...filters, [field]: value };
-    setFilters(newFilters);
-    loadMatches(1, true, newFilters);
   };
 
   const handleConnect = async (userId: string) => {
@@ -158,53 +141,37 @@ export default function DiscoverPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Discover peers</h1>
           <p className="text-gray-600 mt-1">
-            Find district staff working on similar challenges
+            Matches are based on the challenges and district characteristics you set in your profile.
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="card mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Challenge</label>
-              <select
-                value={filters.problemId}
-                onChange={(e) => handleFilterChange('problemId', e.target.value)}
-                className="input-field"
-              >
-                <option value="">All challenges</option>
-                {problems.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
+        {meta?.profile_context && (
+          <div className="card mb-6">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Your matching profile</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">District characteristics</p>
+                <ul className="space-y-1 text-gray-700">
+                  <li><span className="text-gray-500">District:</span> {meta.profile_context.district.name || '—'}</li>
+                  <li><span className="text-gray-500">State/region:</span> {meta.profile_context.district.state_region || '—'}</li>
+                  <li><span className="text-gray-500">Size:</span> {meta.profile_context.district.district_size || '—'}</li>
+                  <li><span className="text-gray-500">Locale type:</span> {meta.profile_context.district.locale_type || '—'}</li>
+                  <li><span className="text-gray-500">Locale subtype:</span> {meta.profile_context.district.locale_subtype || '—'}</li>
+                </ul>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Selected problem statements</p>
+                {meta.profile_context.selected_problem_statements.length === 0 ? (
+                  <p className="text-gray-500">No problem statements selected.</p>
+                ) : (
+                  <ul className="list-disc ml-5 space-y-1 text-gray-700">
+                    {meta.profile_context.selected_problem_statements.map((p) => (
+                      <li key={p.id}>{p.label}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">State / Region</label>
-              <input
-                type="text"
-                value={filters.stateRegion}
-                onChange={(e) => handleFilterChange('stateRegion', e.target.value)}
-                className="input-field"
-                placeholder="e.g. CA, TX"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <input
-                type="text"
-                value={filters.professionalRole}
-                onChange={(e) => handleFilterChange('professionalRole', e.target.value)}
-                className="input-field"
-                placeholder="e.g. Superintendent"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Cold start notice */}
-        {meta?.coldStart && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-            Not many exact matches yet — showing peers with related challenges to help you get started.
           </div>
         )}
 
@@ -238,8 +205,8 @@ export default function DiscoverPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold text-gray-900">{match.full_name}</h3>
-                      <span className={match.matchType === 'exact' ? 'badge-exact' : 'badge-close'}>
-                        {match.matchType === 'exact' ? 'Exact match' : 'Close match'}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        {Math.round(match.compositeScore)}/100
                       </span>
                       {match.is_demo_profile && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
@@ -263,7 +230,9 @@ export default function DiscoverPage() {
                       <p className="text-sm text-gray-600 mt-2 line-clamp-2">{match.bio}</p>
                     )}
 
-                    <p className="text-xs text-gray-400 mt-2 italic">{match.explanation}</p>
+                    <p className="text-xs text-gray-400 mt-2 italic">
+                      {match.explanation} · district {Math.round(match.districtSimilarityScore)}/50 · problems {Math.round(match.problemSimilarityScore)}/50
+                    </p>
                   </div>
 
                   <div className="flex-shrink-0">

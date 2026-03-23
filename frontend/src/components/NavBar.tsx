@@ -101,10 +101,24 @@ export default function NavBar() {
   const role = user?.platform_role as string | undefined;
   const isModerator = role === 'admin' || role === 'moderator';
 
+  const hasCompletedOnboarding = Boolean(user?.profile_completed_at);
+
   const navLinks = [
-    { href: '/discover', label: 'Discover' },
-    { href: '/connections', label: 'Connections' },
-    { href: '/conversations', label: 'Messages' },
+    {
+      href: '/discover',
+      label: 'Discover',
+      disabled: !hasCompletedOnboarding,
+    },
+    {
+      href: '/connections',
+      label: 'Connections',
+      disabled: !hasCompletedOnboarding,
+    },
+    {
+      href: '/conversations',
+      label: 'Messages',
+      disabled: !hasCompletedOnboarding,
+    },
     ...(isModerator ? [{ href: '/admin/ingestion', label: 'Admin' }] : []),
   ];
 
@@ -117,19 +131,30 @@ export default function NavBar() {
               Upstream Literacy
             </Link>
             <div className="hidden md:flex items-center gap-6">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`text-sm font-medium transition-colors ${
-                    pathname?.startsWith(link.href)
-                      ? 'text-primary-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) =>
+                link.disabled ? (
+                  <span
+                    key={link.href}
+                    className="text-sm font-medium text-gray-400 cursor-not-allowed"
+                    aria-disabled="true"
+                    title="Complete profile setup to unlock this section"
+                  >
+                    {link.label}
+                  </span>
+                ) : (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`text-sm font-medium transition-colors ${
+                      pathname?.startsWith(link.href)
+                        ? 'text-primary-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                )
+              )}
             </div>
           </div>
 

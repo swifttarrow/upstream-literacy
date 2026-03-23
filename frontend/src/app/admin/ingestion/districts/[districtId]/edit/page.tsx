@@ -28,8 +28,6 @@ interface District {
 const EDITABLE_KEYS = [
   'district_size',
   'enrollment_bucket',
-  'frl_bucket',
-  'el_bucket',
   'grade_bands',
   'display_name',
   'notes',

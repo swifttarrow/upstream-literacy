@@ -15,14 +15,10 @@ const pool = new Pool({ connectionString: DATABASE_URL });
 const ATTRIBUTE_DEFINITIONS = [
   { key: 'enrollment_bucket', label: 'Enrollment Size', value_type: 'text', sort_order: 1 },
   { key: 'state', label: 'State', value_type: 'text', sort_order: 2 },
-  { key: 'frl_pct', label: 'Free/Reduced Lunch %', value_type: 'number', sort_order: 3 },
-  { key: 'el_pct', label: 'English Learner %', value_type: 'number', sort_order: 4 },
-  { key: 'grade_bands', label: 'Grade Bands', value_type: 'text', sort_order: 5 },
-  { key: 'district_size', label: 'District Size', value_type: 'text', sort_order: 6 },
-  { key: 'frl_bucket', label: 'FRL Bucket', value_type: 'text', sort_order: 7 },
-  { key: 'el_bucket', label: 'EL Bucket', value_type: 'text', sort_order: 8 },
-  { key: 'display_name', label: 'Display Name', value_type: 'text', sort_order: 9 },
-  { key: 'notes', label: 'Notes', value_type: 'text', sort_order: 10 },
+  { key: 'grade_bands', label: 'Grade Bands', value_type: 'text', sort_order: 3 },
+  { key: 'district_size', label: 'District Size', value_type: 'text', sort_order: 4 },
+  { key: 'display_name', label: 'Display Name', value_type: 'text', sort_order: 5 },
+  { key: 'notes', label: 'Notes', value_type: 'text', sort_order: 6 },
 ];
 
 async function seedAttributes() {

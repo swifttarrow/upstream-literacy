@@ -2,6 +2,9 @@
   "name": "upstream-literacy-backend",
   "version": "1.0.0",
   "description": "District Community Matching Platform - Backend API",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
